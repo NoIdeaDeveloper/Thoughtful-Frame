@@ -21,7 +21,40 @@ export async function renderFeed(container) {
 
     try {
         const data = await fetchEntries(currentPage, pageSize);
+        console.log("Feed API response:", data); // Debug API response
         entriesEl.innerHTML = "";
+
+        // Handle various API response formats
+        if (!data) {
+            console.error("No data received from API");
+            entriesEl.innerHTML = `
+                <div class="error-state">
+                    <p>No data received from server.</p>
+                    <p>Please check your connection.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Check if response has expected structure
+        if (!data.entries || !Array.isArray(data.entries)) {
+            console.error("Invalid API response structure:", data);
+            entriesEl.innerHTML = `
+                <div class="error-state">
+                    <p>Received unexpected data format.</p>
+                    <p>Response: ${JSON.stringify(data)}</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Debug: Log actual entry count
+        console.log(`Found ${data.entries.length} journal entries, total: ${data.total || 'unknown'}`);
+
+        // Handle single entry case
+        if (data.entries.length === 1) {
+            console.log("Rendering single journal entry");
+        }
 
         if (data.entries.length === 0) {
             entriesEl.innerHTML = `
@@ -31,12 +64,26 @@ export async function renderFeed(container) {
                     <a href="#/browse" class="btn btn-primary">Browse Photos</a>
                 </div>
             `;
+            
+            console.log("Empty state rendered for journal feed");
+            document.title = "Journal Empty - Thoughtful Frame";
+            
             return;
         }
 
         for (const entry of data.entries) {
-            entriesEl.appendChild(renderEntryCard(entry));
+            try {
+                const card = renderEntryCard(entry);
+                entriesEl.appendChild(card);
+                console.log(`Rendered entry ${entry.id}`);
+            } catch (renderError) {
+                console.error(`Failed to render entry ${entry.id}:", renderError);
+                // Skip this entry but continue with others
+                continue;
+            }
         }
+        
+        console.log(`Successfully rendered ${entriesEl.children.length} entry cards`);
 
         if (data.total > currentPage * pageSize) {
             loadMoreEl.classList.remove("hidden");
@@ -65,10 +112,14 @@ export async function renderFeed(container) {
             }
         });
     } catch (err) {
+        console.error("Failed to load journal entries:", err);
         entriesEl.innerHTML = `
             <div class="error-state">
                 <p>Could not load journal entries.</p>
                 <p>${err.message}</p>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 16px;">
+                    Please check your connection and try refreshing the page.
+                </p>
             </div>
         `;
     }

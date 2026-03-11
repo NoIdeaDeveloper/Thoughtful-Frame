@@ -588,6 +588,27 @@ body {
     margin-bottom: 16px;
 }
 
+/* Error card for individual entry rendering failures */
+.error-card {
+    background: #fff8f8;
+    border: 2px dashed #e8c4c0;
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 16px;
+    color: #c0392b;
+}
+
+.error-card-content {
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+}
+
+.error-card-content p:first-child {
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 1rem;
+}
+
 /* ===== Lightbox ===== */
 .lightbox {
     position: fixed;
