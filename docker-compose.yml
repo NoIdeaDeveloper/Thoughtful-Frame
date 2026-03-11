@@ -9,7 +9,7 @@ services:
       - IMMICH_API_KEY=${IMMICH_API_KEY}
       - DATABASE_PATH=${DATABASE_PATH:-/data/thoughtful_frame.db}
     volumes:
-      - ${DATA_PATH:-./data}:/data
+      - ./data:/data
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -17,7 +17,3 @@ services:
         max-size: "10m"
         max-file: "5"
     network_mode: bridge
-
-volumes:
-  thoughtful-frame-data:
-    driver: local
