@@ -1,0 +1,7 @@
+# HEIC conversion dependencies
+# Primary HEIC decoder
+pyheif>=0.7.0
+# Pillow for image processing  
+Pillow>=9.0.0
+# For better HEIC support (optional)
+pillow-heif>=0.12.0
