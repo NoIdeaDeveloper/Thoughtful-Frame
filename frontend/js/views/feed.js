@@ -56,7 +56,7 @@ export async function renderFeed(container) {
                 btn.textContent = "Load more";
                 btn.disabled = false;
 
-                if (data.total <= currentPage * pageSize) {
+                if (moreData.total <= currentPage * pageSize) {
                     loadMoreEl.classList.add("hidden");
                 }
             } catch (err) {

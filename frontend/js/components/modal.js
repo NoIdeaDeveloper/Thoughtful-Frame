@@ -47,7 +47,7 @@ export function showEntryModal(assetIds, existingEntry = null) {
     document.getElementById("modal-cancel").addEventListener("click", closeModal);
     overlay.addEventListener("click", (e) => {
         if (e.target === overlay) closeModal();
-    });
+    }, { once: true });
 
     // Escape key
     const escHandler = (e) => {

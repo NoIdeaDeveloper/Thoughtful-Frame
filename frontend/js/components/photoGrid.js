@@ -1,5 +1,13 @@
 import { thumbnailUrl } from "../api.js";
 
+function escapeAttr(str) {
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+}
+
 export function renderPhotoGrid(assets, assetsWithEntries) {
     const fragment = document.createDocumentFragment();
 
@@ -11,7 +19,7 @@ export function renderPhotoGrid(assets, assetsWithEntries) {
         const hasEntry = assetsWithEntries.has(asset.id);
 
         item.innerHTML = `
-            <img src="${thumbnailUrl(asset.id)}" loading="lazy" alt="${asset.originalFileName || 'Photo'}">
+            <img src="${thumbnailUrl(asset.id)}" loading="lazy" alt="${escapeAttr(asset.originalFileName || 'Photo')}">
             <span class="entry-badge ${hasEntry ? "" : "hidden"}">&#9998;</span>
             <span class="select-check">&#10003;</span>
         `;

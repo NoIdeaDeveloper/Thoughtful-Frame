@@ -12,6 +12,7 @@ from backend import immich_client
 async def lifespan(app: FastAPI):
     await init_db()
     yield
+    await immich_client.close()
 
 
 app = FastAPI(title="Thoughtful Frame", lifespan=lifespan)
@@ -26,8 +27,10 @@ async def health_check():
 
     try:
         db = await get_db()
-        await db.execute("SELECT 1")
-        await db.close()
+        try:
+            await db.execute("SELECT 1")
+        finally:
+            await db.close()
     except Exception as e:
         status["database"] = f"error: {e}"
 

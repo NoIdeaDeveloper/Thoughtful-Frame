@@ -6,6 +6,7 @@ let multiSelectActive = false;
 let selectedAssetIds = [];
 
 export async function renderBrowse(container) {
+    removeSelectionBar();
     multiSelectActive = false;
     selectedAssetIds = [];
 

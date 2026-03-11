@@ -4,6 +4,13 @@ from backend.config import IMMICH_BASE_URL, IMMICH_API_KEY
 _client: httpx.AsyncClient | None = None
 
 
+async def close():
+    global _client
+    if _client is not None:
+        await _client.aclose()
+        _client = None
+
+
 def _get_client() -> httpx.AsyncClient:
     global _client
     if _client is None:
