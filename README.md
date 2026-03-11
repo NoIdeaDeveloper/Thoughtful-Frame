@@ -84,20 +84,15 @@ cp .env.example .env
 nano .env
 ```
 
-**Configure these values:**
+**Simple configuration (only 1 required value):**
 ```env
-# Your Immich API key (required - get from Immich settings)
+# Your Immich API key (REQUIRED - get from Immich settings)
 IMMICH_API_KEY=your_actual_api_key_here
 
-# Database storage location (optional)
-# Default: ./data (creates data directory next to docker-compose.yml)
-# Example alternatives:
-# DATABASE_PATH=/mnt/user/appdata/thoughtful-frame/data
-# DATABASE_PATH=./thoughtful_frame_data
-DATABASE_PATH=./data
-
-# Optional: Change if your Immich uses different IP/port
+# Optional overrides (most users don't need to change these):
 # IMMICH_BASE_URL=http://192.168.1.180:8080/api
+# DATABASE_PATH=/data/thoughtful_frame.db
+```
 ```
 
 **Save the file:** Press `Ctrl+X`, then `Y`, then `Enter`
@@ -124,30 +119,41 @@ http://your-unraid-ip:8421
 
 #### **4.5. Volume Configuration (Optional)**
 
-**Default Setup (Recommended):**
+**How it works:**
 ```yaml
-# Uses ./data directory (created automatically)
+# Simple bind mount - creates ./data directory automatically
 volumes:
-  - ${DATABASE_PATH:-./data}:/data
+  - ./data:/data
 ```
 
-**Alternative: Specific Unraid Location**
+**What gets stored:**
+- `./data/thoughtful_frame.db` - SQLite database file
+- All application data persists across container restarts
+
+**Benefits:**
+- ✅ **Automatic setup** - No configuration needed
+- ✅ **Persistent storage** - Data survives container updates/restarts
+- ✅ **Easy backups** - Just copy the `./data` directory
+- ✅ **Simple migration** - Move the directory to any location
+
+**To change volume location:**
 ```bash
-# Edit .env file
-nano .env
+# 1. Stop container
+docker compose down
 
-# Change to your preferred location
-DATABASE_PATH=/mnt/user/appdata/thoughtful-frame/data
+# 2. Move existing data (if any)
+mv ./data /mnt/user/appdata/thoughtful-frame/data
 
-# Recreate container
-docker compose up -d --force-recreate
+# 3. Edit docker-compose.yml
+nano docker-compose.yml
+
+# 4. Change volume mount:
+# From: - ./data:/data
+# To:   - /mnt/user/appdata/thoughtful-frame/data:/data
+
+# 5. Restart
+docker compose up -d
 ```
-
-**Volume Benefits:**
-- ✅ **Persistent storage** - database survives container restarts
-- ✅ **Easy backups** - just copy the volume directory
-- ✅ **Flexible location** - works with any path
-- ✅ **Default works** - no configuration needed for basic use
 
 #### **5. Verify It's Working**
 ```bash
