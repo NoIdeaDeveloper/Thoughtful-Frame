@@ -1,3 +1,4 @@
+import logging
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -6,6 +7,16 @@ import httpx
 from backend.database import init_db, get_db
 from backend.routes import journal, immich_proxy
 from backend import immich_client
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -33,13 +44,16 @@ async def health_check():
             await db.close()
     except Exception as e:
         status["database"] = f"error: {e}"
+        logger.error(f"Database health check failed: {e}")
 
     try:
         await immich_client.get_assets(page=1, page_size=1)
     except httpx.ConnectError:
         status["immich"] = "error: cannot reach Immich server"
+        logger.error("Immich health check failed: cannot reach Immich server")
     except Exception as e:
         status["immich"] = f"error: {e}"
+        logger.error(f"Immich health check failed: {e}")
 
     healthy = all(v == "ok" for v in status.values())
     return {"healthy": healthy, **status}
