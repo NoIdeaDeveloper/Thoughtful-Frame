@@ -1,0 +1,23 @@
+version: "3.8"
+services:
+  thoughtful-frame:
+    build: .
+    container_name: thoughtful-frame
+    ports:
+      - "8421:8000"
+    environment:
+      - IMMICH_BASE_URL=http://immich_server:2283/api
+      - IMMICH_API_KEY=${IMMICH_API_KEY}
+      - DATABASE_PATH=/data/thoughtful_frame.db
+    volumes:
+      - thoughtful-frame-data:/data
+    restart: unless-stopped
+    networks:
+      - immich-network
+
+volumes:
+  thoughtful-frame-data:
+
+networks:
+  immich-network:
+    external: true
