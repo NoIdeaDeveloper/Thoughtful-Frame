@@ -456,6 +456,19 @@ body {
     border-color: var(--accent);
 }
 
+/* Modal image actions */
+.modal-image-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+.modal-image-actions .btn {
+    flex: 1;
+    min-width: 120px;
+}
+
 .modal-field textarea {
     min-height: 150px;
     resize: vertical;

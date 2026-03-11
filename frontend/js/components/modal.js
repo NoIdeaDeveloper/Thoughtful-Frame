@@ -35,6 +35,17 @@ export function showEntryModal(assetIds, existingEntry = null) {
             <input type="text" id="modal-entry-title" placeholder="Give this memory a title..."
                    value="${isEdit ? escapeAttr(existingEntry.title) : ""}">
         </div>
+        
+        ${isEdit ? `
+        <div class="modal-field">
+            <label>Manage Images</label>
+            <div class="modal-image-actions">
+                <button class="btn btn-secondary" id="modal-add-images">Add Images</button>
+                ${existingEntry.immich_asset_ids.length > 1 ? `<button class="btn btn-secondary" id="modal-remove-images">Remove Images</button>` : ''}
+            </div>
+        </div>
+        ` : ''}
+        
         <div class="modal-field">
             <label for="modal-entry-body">Your thoughts</label>
             <textarea id="modal-entry-body" placeholder="Write about this moment...">${isEdit ? escapeHtml(existingEntry.body) : ""}</textarea>
@@ -71,6 +82,28 @@ export function showEntryModal(assetIds, existingEntry = null) {
         }
     };
     document.addEventListener("keydown", escHandler);
+
+    // Add/Remove image buttons (only for edit mode)
+    if (isEdit) {
+        const addImagesBtn = document.getElementById("modal-add-images");
+        const removeImagesBtn = document.getElementById("modal-remove-images");
+        
+        if (addImagesBtn) {
+            addImagesBtn.addEventListener("click", () => {
+                closeModal();
+                // Redirect to browse view with multi-select enabled
+                window.location.hash = `#/browse?entry=${existingEntry.id}&mode=add`;
+            });
+        }
+        
+        if (removeImagesBtn) {
+            removeImagesBtn.addEventListener("click", () => {
+                closeModal();
+                // Show remove images modal
+                showRemoveImagesModal(existingEntry.id, existingEntry.immich_asset_ids);
+            });
+        }
+    }
 
     // Save
     document.getElementById("modal-save").addEventListener("click", async () => {

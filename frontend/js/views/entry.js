@@ -227,10 +227,6 @@ export async function renderEntry(container, entryId) {
                 <div class="entry-detail-body">${escapeHtml(entry.body)}</div>
                 <div class="entry-detail-actions">
                     <button class="btn btn-secondary" id="entry-edit">Edit</button>
-                    ${entry.immich_asset_ids.length > 1 ? `
-                        <button class="btn btn-secondary" id="entry-remove-images">Remove Images</button>
-                    ` : ''}
-                    <button class="btn btn-secondary" id="entry-add-images">Add Images</button>
                     <button class="btn btn-danger" id="entry-delete">Delete</button>
                     <a href="#/" class="btn btn-secondary">Back to Journal</a>
                 </div>
@@ -288,19 +284,6 @@ export async function renderEntry(container, entryId) {
         document.getElementById("entry-edit").addEventListener("click", () => {
             showEntryModal(entry.immich_asset_ids, entry);
         });
-
-        // Add images
-        document.getElementById("entry-add-images").addEventListener("click", () => {
-            showAddImagesModal(entry.id);
-        });
-
-        // Remove images (only shown for multi-image entries)
-        const removeBtn = document.getElementById("entry-remove-images");
-        if (removeBtn) {
-            removeBtn.addEventListener("click", () => {
-                showRemoveImagesModal(entry.id, entry.immich_asset_ids);
-            });
-        }
 
         // Delete
         document.getElementById("entry-delete").addEventListener("click", () => {
