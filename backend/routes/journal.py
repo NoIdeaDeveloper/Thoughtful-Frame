@@ -168,16 +168,50 @@ async def update_entry(entry_id: int, data: EntryUpdate):
                 raise HTTPException(
                     status_code=400, detail="At least one asset ID is required"
                 )
-            # Delete existing assets
-            await db.execute(
-                "DELETE FROM entry_assets WHERE entry_id = ?", (entry_id,)
+            
+            # Get current assets for this entry
+            current_assets_cursor = await db.execute(
+                "SELECT immich_asset_id FROM entry_assets WHERE entry_id = ?", (entry_id,)
             )
-            # Insert new assets
-            for position, asset_id in enumerate(data.immich_asset_ids):
+            current_assets = [row["immich_asset_id"] for row in await current_assets_cursor.fetchall()]
+            
+            # Determine operation based on request
+            # If all new assets are different from current ones, replace all (original behavior)
+            if all(asset_id not in current_assets for asset_id in data.immich_asset_ids):
+                # Replace all assets (original behavior)
                 await db.execute(
-                    "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
-                    (entry_id, asset_id, position),
+                    "DELETE FROM entry_assets WHERE entry_id = ?", (entry_id,)
                 )
+                for position, asset_id in enumerate(data.immich_asset_ids):
+                    await db.execute(
+                        "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
+                        (entry_id, asset_id, position),
+                    )
+            else:
+                # Add/remove assets selectively
+                # Remove assets not in the new list
+                assets_to_remove = [asset_id for asset_id in current_assets if asset_id not in data.immich_asset_ids]
+                for asset_id in assets_to_remove:
+                    await db.execute(
+                        "DELETE FROM entry_assets WHERE entry_id = ? AND immich_asset_id = ?",
+                        (entry_id, asset_id)
+                    )
+                
+                # Add new assets not already present
+                assets_to_add = [asset_id for asset_id in data.immich_asset_ids if asset_id not in current_assets]
+                if assets_to_add:
+                    # Get max position for new assets
+                    max_pos_cursor = await db.execute(
+                        "SELECT MAX(position) FROM entry_assets WHERE entry_id = ?", (entry_id,)
+                    )
+                    max_pos_row = await max_pos_cursor.fetchone()
+                    start_pos = max_pos_row[0] + 1 if max_pos_row and max_pos_row[0] is not None else 0
+                    
+                    for position, asset_id in enumerate(assets_to_add, start=start_pos):
+                        await db.execute(
+                            "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
+                            (entry_id, asset_id, position),
+                        )
 
         # Commit transaction
         await db.commit()
@@ -194,6 +228,112 @@ async def update_entry(entry_id: int, data: EntryUpdate):
         logger.error(f"Failed to update entry: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to update entry: {str(e)}")
 
+    finally:
+        await db.close()
+
+
+@router.post("/entries/{entry_id}/assets")
+async def add_assets_to_entry(entry_id: int, data: EntryUpdate):
+    """
+    Add assets to an existing entry without replacing all assets.
+    
+    Request body should contain:
+    {
+        "immich_asset_ids": ["asset_id_1", "asset_id_2"]
+    }
+    """
+    if not data.immich_asset_ids:
+        raise HTTPException(status_code=400, detail="At least one asset ID is required")
+    
+    db = await get_db()
+    try:
+        # Verify entry exists
+        cursor = await db.execute(
+            "SELECT id FROM journal_entries WHERE id = ?", (entry_id,)
+        )
+        if not await cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Entry not found")
+        
+        # Get current assets
+        current_assets_cursor = await db.execute(
+            "SELECT immich_asset_id FROM entry_assets WHERE entry_id = ?", (entry_id,)
+        )
+        current_assets = [row["immich_asset_id"] for row in await current_assets_cursor.fetchall()]
+        
+        # Filter out duplicates
+        new_assets = [asset_id for asset_id in data.immich_asset_ids if asset_id not in current_assets]
+        
+        if not new_assets:
+            return {"message": "All specified assets already exist in this entry", "added": []}
+        
+        # Get max position
+        max_pos_cursor = await db.execute(
+            "SELECT MAX(position) FROM entry_assets WHERE entry_id = ?", (entry_id,)
+        )
+        max_pos_row = await max_pos_cursor.fetchone()
+        start_pos = max_pos_row[0] + 1 if max_pos_row and max_pos_row[0] is not None else 0
+        
+        # Add new assets
+        for position, asset_id in enumerate(new_assets, start=start_pos):
+            await db.execute(
+                "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
+                (entry_id, asset_id, position),
+            )
+        
+        await db.commit()
+        return {"message": f"Successfully added {len(new_assets)} assets", "added": new_assets}
+        
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to add assets to entry: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to add assets: {str(e)}")
+    finally:
+        await db.close()
+
+
+@router.delete("/entries/{entry_id}/assets")
+async def remove_assets_from_entry(entry_id: int, asset_ids: list[str]):
+    """
+    Remove specific assets from an entry.
+    
+    Request body should contain:
+    {
+        "asset_ids": ["asset_id_1", "asset_id_2"]
+    }
+    """
+    if not asset_ids:
+        raise HTTPException(status_code=400, detail="At least one asset ID is required")
+    
+    db = await get_db()
+    try:
+        # Verify entry exists
+        cursor = await db.execute(
+            "SELECT id FROM journal_entries WHERE id = ?", (entry_id,)
+        )
+        if not await cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Entry not found")
+        
+        # Remove specified assets
+        removed_count = 0
+        for asset_id in asset_ids:
+            cursor = await db.execute(
+                "DELETE FROM entry_assets WHERE entry_id = ? AND immich_asset_id = ?",
+                (entry_id, asset_id)
+            )
+            if cursor.rowcount > 0:
+                removed_count += 1
+        
+        await db.commit()
+        
+        if removed_count == 0:
+            return {"message": "No assets were removed (may not exist in entry)", "removed": 0}
+        
+        return {"message": f"Successfully removed {removed_count} assets", "removed": removed_count}
+        
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to remove assets from entry: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to remove assets: {str(e)}")
     finally:
         await db.close()
 
