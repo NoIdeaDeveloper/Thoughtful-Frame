@@ -620,5 +620,3 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
     } catch (error) {
         // console.error("Failed to set up auto-sliding gallery:", error);
     }
-}
-
