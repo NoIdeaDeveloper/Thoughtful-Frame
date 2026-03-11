@@ -47,7 +47,12 @@ async def get_thumbnail(asset_id: str):
         return Response(
             content=image_bytes,
             media_type=content_type,
-            headers={"Cache-Control": "public, max-age=86400"},
+            headers={
+                "Cache-Control": "public, max-age=86400",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET",
+                "Access-Control-Allow-Headers": "Content-Type"
+            },
         )
     except httpx.ConnectError:
         raise HTTPException(
@@ -68,7 +73,12 @@ async def get_original(asset_id: str):
         return Response(
             content=image_bytes,
             media_type=content_type,
-            headers={"Cache-Control": "public, max-age=86400"},
+            headers={
+                "Cache-Control": "public, max-age=86400",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET",
+                "Access-Control-Allow-Headers": "Content-Type"
+            },
         )
     except httpx.ConnectError:
         raise HTTPException(

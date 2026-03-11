@@ -41,6 +41,9 @@ export async function renderEntry(container, entryId) {
         container.innerHTML = `
             <div class="entry-detail">
                 ${photosHtml}
+                <div id="image-load-errors" style="color: var(--accent); margin: 10px 0; display: none;">
+                    Some images failed to load. <button id="retry-images" class="btn btn-small">Retry</button>
+                </div>
                 ${entry.title ? `<h2 class="entry-detail-title">${escapeHtml(entry.title)}</h2>` : ""}
                 <div class="entry-detail-date">
                     ${formatDate(entry.created_at)}
@@ -58,6 +61,27 @@ export async function renderEntry(container, entryId) {
                 </div>
             </div>
         `;
+
+        // Add error handling for image loading
+        const errorHandler = () => {
+            const errorDiv = document.getElementById("image-load-errors");
+            if (errorDiv) {
+                errorDiv.style.display = "block";
+            }
+        };
+
+        // Add event listeners for all images
+        container.querySelectorAll("img").forEach((img) => {
+            img.onerror = errorHandler;
+        });
+
+        // Retry button
+        const retryBtn = document.getElementById("retry-images");
+        if (retryBtn) {
+            retryBtn.addEventListener("click", () => {
+                window.location.reload();
+            });
+        }
 
         // Lightbox for multi-photo entries
         if (isMulti) {
