@@ -303,9 +303,7 @@ function showRemoveImagesModal(entryId, currentAssetIds) {
 
 
 function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
-    """
-    Set up auto-sliding gallery for multi-photo entries
-    """
+    // Set up auto-sliding gallery for multi-photo entries
     try {
         // Configuration
         const slideInterval = 5000; // 5 seconds between slides
