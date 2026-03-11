@@ -386,7 +386,7 @@ function showAddImagesModal(entryId) {
     });
 }
 
-function showRemoveImagesModal(entryId, currentAssetIds) {
+export function showRemoveImagesModal(entryId, currentAssetIds) {
     const overlay = document.getElementById("modal-overlay");
     const container = document.getElementById("modal-container");
 

@@ -1,5 +1,6 @@
 import { thumbnailUrl, createEntry, updateEntry } from "../api.js";
 import { escapeHtml } from "../utils.js";
+import { showRemoveImagesModal } from "../views/entry.js";
 
 const overlay = document.getElementById("modal-overlay");
 const container = document.getElementById("modal-container");
@@ -93,8 +94,8 @@ export function showEntryModal(assetIds, existingEntry = null) {
                 // Store the entry ID in sessionStorage to maintain context
                 sessionStorage.setItem('addImagesToEntry', existingEntry.id);
                 closeModal();
-                // Redirect to browse view with multi-select enabled
-                window.location.hash = `#/browse?mode=add`;
+                // Redirect to browse view with multi-select enabled and entry ID
+                window.location.hash = `#/browse?entry=${existingEntry.id}&mode=add`;
             });
         }
         
