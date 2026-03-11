@@ -105,8 +105,13 @@ export async function renderBrowse(container) {
         gridEl.innerHTML = "";
         gridEl.appendChild(renderPhotoGrid(assets, assetsWithEntries));
 
+        console.log("Asset data received:", data);
+        console.log(`Current page: ${currentPage}, Page size: ${pageSize}, Items: ${extractAssets(data).length}`);
+        
         if (hasMorePages(data, currentPage, pageSize)) {
             loadMoreEl.classList.remove("hidden");
+        } else {
+            console.log("No more pages detected");
         }
 
         attachGridClickHandlers(gridEl);
@@ -119,8 +124,11 @@ export async function renderBrowse(container) {
             btn.disabled = true;
 
             try {
+                console.log(`Loading more assets, page ${currentPage}`);
                 const moreData = await fetchAssets(currentPage, pageSize);
+                console.log("More data received:", moreData);
                 const moreAssets = extractAssets(moreData);
+                console.log(`Loaded ${moreAssets.length} more assets`);
                 allLoadedAssets = allLoadedAssets.concat(moreAssets);
 
                 const moreIds = moreAssets.map((a) => a.id);
@@ -134,10 +142,14 @@ export async function renderBrowse(container) {
 
                 if (!hasMorePages(moreData, currentPage, pageSize)) {
                     loadMoreEl.classList.add("hidden");
+                    console.log("All assets loaded, hiding Load More button");
+                } else {
+                    console.log("More assets available, keeping Load More button");
                 }
             } catch (err) {
                 btn.textContent = "Load more";
                 btn.disabled = false;
+                console.error("Failed to load more assets:", err);
             }
         });
     } catch (err) {
@@ -233,11 +245,30 @@ function extractAssets(data) {
 }
 
 function hasMorePages(data, currentPage, pageSize) {
+    // Check if we have total count from Immich API
     if (data.assets && data.assets.total) {
         return data.assets.total > currentPage * pageSize;
     }
+    
+    // Fallback: if we got a full page, assume there might be more
+    // But don't show "Load More" if we're on page 1 with few items
     const items = extractAssets(data);
-    return items.length === pageSize;
+    if (items.length === 0) return false;
+    
+    // If we got exactly pageSize items and we're not on a high page number,
+    // assume there are more pages
+    if (items.length === pageSize) {
+        return true;
+    }
+    
+    // If we got fewer than pageSize, check if it's likely the last page
+    // Don't show "Load More" if we're on page 1-3 with fewer items
+    if (currentPage <= 3 && items.length < pageSize) {
+        return false;
+    }
+    
+    // Otherwise, assume there might be more
+    return true;
 }
 
 function skeletonGrid(count) {
