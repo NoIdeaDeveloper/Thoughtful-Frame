@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from backend.database import get_db
@@ -11,6 +12,7 @@ from backend.models import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 async def _build_entry_response(db, entry_row) -> EntryResponse:
@@ -58,6 +60,7 @@ async def _build_entries_response(db, entry_rows) -> list[EntryResponse]:
 
 @router.get("/entries", response_model=EntryListResponse)
 async def list_entries(page: int = 1, page_size: int = 20):
+    logger.debug(f"Listing entries - page: {page}, page_size: {page_size}")
     db = await get_db()
     try:
         offset = (page - 1) * page_size
@@ -98,7 +101,9 @@ async def get_entry(entry_id: int):
 
 @router.post("/entries", response_model=EntryResponse, status_code=201)
 async def create_entry(data: EntryCreate):
+    logger.info(f"Creating new entry with {len(data.immich_asset_ids)} assets")
     if not data.immich_asset_ids:
+        logger.warning("Create entry attempt with no asset IDs")
         raise HTTPException(status_code=400, detail="At least one asset ID is required")
 
     now = datetime.now(timezone.utc).isoformat()

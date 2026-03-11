@@ -169,28 +169,71 @@ docker compose up -d --build
 Thoughtful Frame includes comprehensive logging to help troubleshoot issues:
 
 ```bash
-# View real-time logs (follow)
+# View real-time logs with colors (follow)
 docker logs -f thoughtful-frame
 
-# View last 100 lines of logs
-docker logs --tail 100 thoughtful-frame
+# View last 200 lines of logs
+docker logs --tail 200 thoughtful-frame
 
 # View logs with timestamps
 docker logs -t thoughtful-frame
+
+# Filter logs by level (show only ERROR and above)
+docker logs thoughtful-frame | grep -E 'ERROR|WARNING'
+
+# Save logs to file for analysis
+docker logs thoughtful-frame > thoughtful-frame.log
 
 # Check container status
 docker ps | grep thoughtful
 
 # View resource usage (CPU, memory)
 docker stats thoughtful-frame
+
+# View detailed log information
+docker inspect thoughtful-frame --format='{{.LogPath}}'
 ```
 
-**Log Features:**
-- ✅ **Automatic log rotation** (10MB max, keeps 3 files)
-- ✅ **Structured JSON format** for easy parsing
-- ✅ **Access logs** for API request monitoring
-- ✅ **Error logs** for database and Immich connection issues
-- ✅ **Tagged logs** (`thoughtful-frame`) for easy filtering
+**Understanding Log Output:**
+```
+# Example log line format:
+2024-01-15 14:30:45 - thoughtful-frame - INFO - main.py:25 - Application starting up...
+          ↑                ↑                  ↑           ↑               ↑
+          timestamp       logger name        level      module:line     message
+
+# Common log patterns:
+- "Application starting up..." - Normal startup
+- "Database initialized successfully" - DB ready
+- "Creating new entry with X assets" - User activity
+- "Failed to fetch assets from Immich" - Integration issue
+- "Database operation failed" - Query problems
+```
+
+**Log Analysis Tips:**
+- 🔍 **Search for ERROR** to find critical issues
+- 📊 **Count log levels**: `docker logs tf | grep -c "ERROR"`
+- ⏱️ **Measure response times**: Look for timing logs
+- 🔗 **Correlate requests**: Use request IDs in access logs
+- 📁 **Archive logs**: Rotate regularly to prevent disk issues
+=======
+
+**Enhanced Log Features:**
+- ✅ **Verbose DEBUG logging** for detailed troubleshooting
+- ✅ **Automatic log rotation** (10MB max, keeps 5 files)
+- ✅ **Structured format with module/line numbers** for precise debugging
+- ✅ **Colorized console output** for better readability
+- ✅ **Access logs** with detailed request/response information
+- ✅ **Error logs with stack traces** for deep diagnostics
+- ✅ **Tagged and labeled logs** (`thoughtful-frame`) for easy filtering
+- ✅ **Lifespan event logging** (startup/shutdown)
+- ✅ **Database operation logging** with timing
+- ✅ **Immich API call logging** with payload details
+
+**Log Levels Used:**
+- `DEBUG` - Detailed operational information (database queries, API calls)
+- `INFO` - Important runtime events (startup, health checks, endpoint calls)
+- `WARNING` - Potential issues (validation failures, retries)
+- `ERROR` - Problems that need attention (failed operations, timeouts)
 
 **Common Log Messages:**
 - `Database health check failed` - Database connection issues

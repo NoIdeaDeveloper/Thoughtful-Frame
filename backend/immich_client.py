@@ -1,12 +1,15 @@
+import logging
 import httpx
 from backend.config import IMMICH_BASE_URL, IMMICH_API_KEY
 
 _client: httpx.AsyncClient | None = None
+logger = logging.getLogger(__name__)
 
 
 async def close():
     global _client
     if _client is not None:
+        logger.debug("Closing Immich HTTP client")
         await _client.aclose()
         _client = None
 
@@ -23,18 +26,24 @@ def _get_client() -> httpx.AsyncClient:
 
 
 async def get_assets(page: int = 1, page_size: int = 50) -> dict:
+    logger.debug(f"Fetching assets from Immich - page: {page}, page_size: {page_size}")
     client = _get_client()
-    response = await client.post(
-        "/search/metadata",
-        json={
-            "page": page,
-            "size": page_size,
-            "type": "IMAGE",
-            "order": "desc",
-        },
-    )
-    response.raise_for_status()
-    return response.json()
+    try:
+        response = await client.post(
+            "/search/metadata",
+            json={
+                "page": page,
+                "size": page_size,
+                "type": "IMAGE",
+                "order": "desc",
+            },
+        )
+        response.raise_for_status()
+        logger.debug(f"Successfully fetched {len(response.json().get('assets', {}).get('items', []))} assets")
+        return response.json()
+    except Exception as e:
+        logger.error(f"Failed to fetch assets from Immich: {e}", exc_info=True)
+        raise
 
 
 async def get_asset(asset_id: str) -> dict:
