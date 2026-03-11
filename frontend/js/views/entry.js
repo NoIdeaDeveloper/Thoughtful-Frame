@@ -18,11 +18,8 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
         // Only set up sliding if there are multiple images
         const images = photosContainer.querySelectorAll("img");
         if (images.length <= 1) {
-            // console.log("Only one image, no sliding needed");
             return;
         }
-        
-        // console.log(`Setting up auto-sliding gallery with ${images.length} images`);
         
         // Add gallery controls
         const controls = document.createElement("div");
@@ -70,21 +67,17 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
                 
                 imagesWrapper.style.transform = `translateX(-${currentPosition}px)`;
             }, slideInterval);
-            
-            // console.log("Auto-sliding started");
         }
         
         function stopSliding() {
             if (slideIntervalId) {
                 clearInterval(slideIntervalId);
                 slideIntervalId = null;
-                // console.log("Auto-sliding stopped");
             }
         }
         
         function pauseSliding() {
             isPaused = true;
-            // console.log("Sliding paused");
         }
         
         function resumeSliding() {
@@ -92,7 +85,6 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
             if (!slideIntervalId) {
                 startSliding();
             }
-            // console.log("Sliding resumed");
         }
         
         function slideTo(position) {
@@ -167,7 +159,7 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
         };
         
     } catch (error) {
-        // console.error("Failed to set up auto-sliding gallery:", error);
+        // Error is silently caught to allow graceful degradation
     }
 }
 
@@ -469,11 +461,8 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
         // Only set up sliding if there are multiple images
         const images = photosContainer.querySelectorAll("img");
         if (images.length <= 1) {
-            // console.log("Only one image, no sliding needed");
             return;
         }
-        
-        // console.log(`Setting up auto-sliding gallery with ${images.length} images`);
         
         // Add gallery controls
         const controls = document.createElement("div");
@@ -522,20 +511,18 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
                 imagesWrapper.style.transform = `translateX(-${currentPosition}px)`;
             }, slideInterval);
             
-            // console.log("Auto-sliding started");
+
         }
         
         function stopSliding() {
             if (slideIntervalId) {
                 clearInterval(slideIntervalId);
                 slideIntervalId = null;
-                // console.log("Auto-sliding stopped");
             }
         }
         
         function pauseSliding() {
             isPaused = true;
-            // console.log("Sliding paused");
         }
         
         function resumeSliding() {
@@ -543,7 +530,6 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
             if (!slideIntervalId) {
                 startSliding();
             }
-            // console.log("Sliding resumed");
         }
         
         function slideTo(position) {
@@ -618,6 +604,6 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
         };
         
     } catch (error) {
-        // console.error("Failed to set up auto-sliding gallery:", error);
+        // Error is silently caught to allow graceful degradation
     }
 }}

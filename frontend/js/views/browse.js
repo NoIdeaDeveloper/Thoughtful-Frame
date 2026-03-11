@@ -16,7 +16,7 @@ entryIdForAdding = entryIdParam;
 if (!entryIdForAdding && modeParam === 'add') {
     entryIdForAdding = sessionStorage.getItem('addImagesToEntry');
     if (entryIdForAdding) {
-        // console.log(`Adding images to entry ${entryIdForAdding} from sessionStorage`);
+
     }
 }
 
@@ -105,7 +105,6 @@ export async function renderBrowse(container) {
 
     try {
         const data = await fetchAssets(currentPage, pageSize);
-        // console.log("Full API response:", data);
         
         const assets = extractAssets(data);
         allLoadedAssets = assets;
@@ -116,24 +115,11 @@ export async function renderBrowse(container) {
         gridEl.innerHTML = "";
         gridEl.appendChild(renderPhotoGrid(assets, assetsWithEntries));
 
-        // console.log(`Current page: ${currentPage}, Page size: ${pageSize}, Items loaded: ${assets.length}`);
-        
-        // Debug the pagination data
-        if (data.assets) {
-            // console.log(`Immich total: ${data.assets.total || 'N/A'}, items: ${data.assets.items ? data.assets.items.length : 'N/A'}`);
-        } else {
-            // console.log("No assets data in response");
-        }
-        
         const showLoadMore = hasMorePages(data, currentPage, pageSize);
-        // console.log(`hasMorePages result: ${showLoadMore}`);
-        // console.log(`Calculation: total=${data.assets?.total || 'unknown'}, current=${currentPage * pageSize}`);
         
-        // Force show Load More button for testing
-        // TODO: Remove this after debugging
-        if (assets.length > 0) {
+        // Show Load More button if there are more pages
+        if (showLoadMore) {
             loadMoreEl.classList.remove("hidden");
-            // console.log("DEBUG: Forcing Load More button to show");
         } else {
             loadMoreEl.classList.add("hidden");
         }
@@ -148,11 +134,8 @@ export async function renderBrowse(container) {
             btn.disabled = true;
 
             try {
-                // console.log(`Loading more assets, page ${currentPage}`);
                 const moreData = await fetchAssets(currentPage, pageSize);
-                // console.log("More data received:", moreData);
                 const moreAssets = extractAssets(moreData);
-                // console.log(`Loaded ${moreAssets.length} more assets`);
                 allLoadedAssets = allLoadedAssets.concat(moreAssets);
 
                 const moreIds = moreAssets.map((a) => a.id);
@@ -164,20 +147,10 @@ export async function renderBrowse(container) {
                 btn.textContent = "Load more";
                 btn.disabled = false;
 
-                // Debug: Always show Load More button for now
-                // console.log(`Page ${currentPage} loaded ${moreAssets.length} items`);
-                // console.log("Full response:", moreData);
-                
                 const hasMore = hasMorePages(moreData, currentPage, pageSize);
-                // console.log(`hasMorePages result after loading more: ${hasMore}`);
                 
-                // Always keep Load More button visible if we got any items
-                // This is a temporary fix until we resolve the pagination issue
-                if (moreAssets.length > 0) {
-                    // console.log("Keeping Load More button visible (temporary fix)");
-                    // Don't hide the button
-                } else {
-                    // console.log("No more items loaded, hiding Load More button");
+                // Hide Load More button if there are no more pages
+                if (!hasMore) {
                     loadMoreEl.classList.add("hidden");
                 }
             } catch (err) {
