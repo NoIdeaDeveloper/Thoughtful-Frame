@@ -1,12 +1,11 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 import httpx
-from backend import immich_client
 import io
 import logging
 from PIL import Image
-import tempfile
-import os
+
+from backend import immich_client
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
