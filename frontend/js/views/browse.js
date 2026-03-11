@@ -155,11 +155,21 @@ export async function renderBrowse(container) {
                 btn.textContent = "Load more";
                 btn.disabled = false;
 
-                if (!hasMorePages(moreData, currentPage, pageSize)) {
-                    loadMoreEl.classList.add("hidden");
-                    console.log("All assets loaded, hiding Load More button");
+                // Debug: Always show Load More button for now
+                console.log(`Page ${currentPage} loaded ${moreAssets.length} items`);
+                console.log("Full response:", moreData);
+                
+                const hasMore = hasMorePages(moreData, currentPage, pageSize);
+                console.log(`hasMorePages result after loading more: ${hasMore}`);
+                
+                // Always keep Load More button visible if we got any items
+                // This is a temporary fix until we resolve the pagination issue
+                if (moreAssets.length > 0) {
+                    console.log("Keeping Load More button visible (temporary fix)");
+                    // Don't hide the button
                 } else {
-                    console.log("More assets available, keeping Load More button");
+                    console.log("No more items loaded, hiding Load More button");
+                    loadMoreEl.classList.add("hidden");
                 }
             } catch (err) {
                 btn.textContent = "Load more";
