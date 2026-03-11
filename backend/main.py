@@ -57,7 +57,7 @@ async def health_check():
             await db.close()
     except Exception as e:
         status["database"] = f"error: {e}"
-        logger.error(f"Database health check failed: {e}")
+        logger.error(f"Database health check failed: {e}", exc_info=True)
 
     try:
         await immich_client.get_assets(page=1, page_size=1)
