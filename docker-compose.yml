@@ -1,4 +1,3 @@
-version: "3.8"
 services:
   thoughtful-frame:
     build: .
@@ -17,9 +16,6 @@ services:
       options:
         max-size: "10m"
         max-file: "5"
-        tags: "thoughtful-frame"
-        labels: "app,thoughtful-frame"
-        env: "production"
     network_mode: host
 
 volumes:
