@@ -53,24 +53,125 @@ Both services run on your Unraid server's main bridge network.
 - Firewall must allow both ports
 - No container-to-container optimization (uses external URLs)
 
-## 🚀 Beginner-Friendly Installation Guide
+## 🎯 Unraid-Specific Deployment Guide
 
-### Step-by-Step Setup (Unraid)
+### ✅ Pre-Configured for Your Setup
 
-#### **1. Prepare Your System**
-- ✅ **Requirements:** Unraid server with Docker enabled
-- ✅ **Immich Server:** Must be running and accessible
-- ✅ **Immich API Key:** Get this from Immich → Account Settings → API Keys
+This application is now **pre-configured** to work with your Unraid server:
+- **Server IP:** `192.168.1.180`
+- **Immich Port:** `8080`
+- **Network:** Bridge mode (default Unraid network)
+- **Port:** `8421` (Thoughtful Frame)
 
-#### **2. Download the Project**
+### 🚀 Quick Start (3 Simple Steps)
+
+#### **1. Copy the project to your Unraid server**
 ```bash
-# Connect to your Unraid server via SSH or use the Unraid terminal
+# Connect via SSH or use Unraid terminal
 cd /mnt/user/appdata/
+
+# Clone the repository (or download ZIP and extract)
 git clone https://github.com/your-repo/thoughtful-frame.git
 cd thoughtful-frame
 ```
 
-**Alternative:** Download the ZIP and extract to `/mnt/user/appdata/thoughtful-frame/`
+#### **2. Set up your configuration**
+```bash
+# Copy the example configuration (pre-configured for your Unraid)
+cp .env.example .env
+
+# Edit the .env file
+nano .env
+```
+
+**Only change these values:**
+```env
+# Your Immich API key (required - get from Immich settings)
+IMMICH_API_KEY=your_actual_api_key_here
+
+# Optional: Change if your Immich uses different IP/port
+# IMMICH_BASE_URL=http://192.168.1.180:8080/api
+```
+
+**Save the file:** Press `Ctrl+X`, then `Y`, then `Enter`
+
+#### **3. Deploy with Docker**
+```bash
+# Build and start the container
+docker compose up -d --build
+```
+
+Wait about 30 seconds for initialization...
+
+#### **4. Access Thoughtful Frame**
+Open your web browser and navigate to:
+```
+http://192.168.1.180:8421
+```
+
+**Access from other devices on your network:**
+```
+http://your-unraid-ip:8421
+```
+(Replace `your-unraid-ip` with your actual Unraid server IP if different from 192.168.1.180)
+
+#### **5. Verify It's Working**
+```bash
+# Check container status
+docker ps
+
+# View logs (should show no errors)
+docker logs thoughtful-frame
+
+# Test the health endpoint
+curl http://localhost:8421/api/health
+
+# Test Immich connection from container
+docker exec -it thoughtful-frame curl http://192.168.1.180:8080/api/server-info
+```
+
+#### **6. Monitor Docker Health Checks**
+
+The container includes **automatic health monitoring**:
+```bash
+# Check health status
+docker inspect --format='{{json .State.Health}}' thoughtful-frame | jq
+
+# View health check logs
+docker events --filter 'event=health_status'
+
+# Manual health check
+curl -s http://localhost:8421/api/health | jq
+```
+
+**Health Check Features:**
+- ✅ **Automatic checks every 30 seconds**
+- ✅ **5 retries before marking unhealthy**
+- ✅ **15-second startup grace period**
+- ✅ **10-second timeout per check**
+- ✅ **Detailed status information** (database, Immich, application)
+- ✅ **Timestamped responses**
+- ✅ **Performance metrics** (Immich response time)
+
+**Example Healthy Response:**
+```json
+{
+  "healthy": true,
+  "status": {
+    "timestamp": "2024-03-11T06:17:25.450123",
+    "database": "ok",
+    "immich": "ok", 
+    "application": "ok",
+    "details": {
+      "database": "connection successful",
+      "immich": "connection successful (0.45s)",
+      "application": "running"
+    }
+  },
+  "timestamp": "2024-03-11T06:17:25.450123",
+  "version": "1.0.0"
+}
+```
 
 #### **3. Configure Environment Variables**
 ```bash
