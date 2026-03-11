@@ -73,10 +73,22 @@ async def health_check():
     return {"healthy": healthy, **status}
 
 
-app.mount("/static", StaticFiles(directory="frontend"), name="static")
+# Mount static files with proper cache control
+app.mount(
+    "/static",
+    StaticFiles(directory="frontend", html=True),
+    name="static"
+)
 
 
 @app.get("/")
 async def serve_index():
     logger.debug("Serving index.html")
-    return FileResponse("frontend/index.html")
+    return FileResponse(
+        "frontend/index.html",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
