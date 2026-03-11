@@ -91,8 +91,14 @@ export async function renderEntry(container, entryId) {
             });
         }
 
-        // Lightbox for multi-photo entries
+        // Auto-sliding gallery for multi-photo entries
         if (isMulti) {
+            const photosContainer = container.querySelector(".entry-detail-photos.multi");
+            if (photosContainer) {
+                setupAutoSlidingGallery(photosContainer);
+            }
+            
+            // Lightbox functionality
             container.querySelectorAll(".entry-detail-photos.multi img").forEach((img) => {
                 img.addEventListener("click", () => {
                     showLightbox(img.src);
@@ -285,6 +291,156 @@ function showRemoveImagesModal(entryId, currentAssetIds) {
             alert("Failed to remove images: " + err.message);
         }
     });
+
+
+function setupAutoSlidingGallery(photosContainer) {
+    """
+    Set up auto-sliding gallery for multi-photo entries
+    """
+    try {
+        // Configuration
+        const slideInterval = 5000; // 5 seconds between slides
+        const slideDistance = 300; // pixels to slide
+        const pauseOnHover = true;
+        
+        let slideIntervalId = null;
+        let isPaused = false;
+        let currentPosition = 0;
+        
+        // Only set up sliding if there are multiple images
+        const images = photosContainer.querySelectorAll("img");
+        if (images.length <= 1) {
+            console.log("Only one image, no sliding needed");
+            return;
+        }
+        
+        console.log(`Setting up auto-sliding gallery with ${images.length} images`);
+        
+        // Add gallery controls
+        const controls = document.createElement("div");
+        controls.className = "gallery-controls";
+        controls.innerHTML = `
+            <button class="gallery-control pause" title="Pause">⏸️</button>
+            <button class="gallery-control play hidden" title="Play">▶️</button>
+            <button class="gallery-control prev" title="Previous">⬅️</button>
+            <button class="gallery-control next" title="Next">➡️</button>
+        `;
+        
+        // Insert controls after the photos container
+        photosContainer.parentNode.insertBefore(controls, photosContainer.nextSibling);
+        
+        // Style the gallery container for sliding
+        photosContainer.style.overflow = "hidden";
+        photosContainer.style.position = "relative";
+        
+        // Create a wrapper for the images
+        const imagesWrapper = document.createElement("div");
+        imagesWrapper.className = "images-wrapper";
+        imagesWrapper.style.display = "flex";
+        imagesWrapper.style.transition = "transform 0.5s ease-in-out";
+        imagesWrapper.style.width = "fit-content";
+        
+        // Move images into wrapper
+        while (photosContainer.firstChild) {
+            imagesWrapper.appendChild(photosContainer.firstChild);
+        }
+        photosContainer.appendChild(imagesWrapper);
+        
+        // Control functions
+        function startSliding() {
+            if (slideIntervalId || isPaused) return;
+            
+            slideIntervalId = setInterval(() => {
+                if (isPaused) return;
+                
+                const maxScroll = imagesWrapper.scrollWidth - photosContainer.clientWidth;
+                currentPosition += slideDistance;
+                
+                if (currentPosition >= maxScroll) {
+                    currentPosition = 0; // Loop back to start
+                }
+                
+                imagesWrapper.style.transform = `translateX(-${currentPosition}px)`;
+            }, slideInterval);
+            
+            console.log("Auto-sliding started");
+        }
+        
+        function stopSliding() {
+            if (slideIntervalId) {
+                clearInterval(slideIntervalId);
+                slideIntervalId = null;
+                console.log("Auto-sliding stopped");
+            }
+        }
+        
+        function pauseSliding() {
+            isPaused = true;
+            console.log("Sliding paused");
+        }
+        
+        function resumeSliding() {
+            isPaused = false;
+            if (!slideIntervalId) {
+                startSliding();
+            }
+            console.log("Sliding resumed");
+        }
+        
+        function slideTo(position) {
+            currentPosition = position;
+            imagesWrapper.style.transform = `translateX(-${currentPosition}px)`;
+        }
+        
+        function nextSlide() {
+            const maxScroll = imagesWrapper.scrollWidth - photosContainer.clientWidth;
+            currentPosition += slideDistance;
+            if (currentPosition >= maxScroll) {
+                currentPosition = 0;
+            }
+            imagesWrapper.style.transform = `translateX(-${currentPosition}px)`;
+        }
+        
+        function prevSlide() {
+            currentPosition -= slideDistance;
+            if (currentPosition < 0) {
+                currentPosition = imagesWrapper.scrollWidth - photosContainer.clientWidth;
+            }
+            imagesWrapper.style.transform = `translateX(-${currentPosition}px)`;
+        }
+        
+        // Event listeners for controls
+        controls.querySelector(".pause").addEventListener("click", () => {
+            pauseSliding();
+            controls.querySelector(".pause").classList.add("hidden");
+            controls.querySelector(".play").classList.remove("hidden");
+        });
+        
+        controls.querySelector(".play").addEventListener("click", () => {
+            resumeSliding();
+            controls.querySelector(".play").classList.add("hidden");
+            controls.querySelector(".pause").classList.remove("hidden");
+        });
+        
+        controls.querySelector(".prev").addEventListener("click", prevSlide);
+        controls.querySelector(".next").addEventListener("click", nextSlide);
+        
+        // Pause on hover
+        if (pauseOnHover) {
+            photosContainer.addEventListener("mouseenter", pauseSliding);
+            photosContainer.addEventListener("mouseleave", resumeSliding);
+        }
+        
+        // Start sliding automatically
+        startSliding();
+        
+        // Cleanup on page navigation
+        window.addEventListener("beforeunload", stopSliding);
+        
+    } catch (error) {
+        console.error("Failed to set up auto-sliding gallery:", error);
+    }
+}
 }
 
 

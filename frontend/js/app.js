@@ -1,6 +1,7 @@
 import { renderFeed } from "./views/feed.js";
 import { renderBrowse } from "./views/browse.js";
 import { renderEntry } from "./views/entry.js";
+import { renderSettings } from "./views/settings.js";
 
 const contentEl = document.getElementById("app-content");
 
@@ -14,6 +15,8 @@ function route() {
         renderBrowse(contentEl);
     } else if (parts[0] === "entry" && parts[1]) {
         renderEntry(contentEl, parseInt(parts[1], 10));
+    } else if (parts[0] === "settings") {
+        renderSettings(contentEl);
     }
 
     // Update active nav link
