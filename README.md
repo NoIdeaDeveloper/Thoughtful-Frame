@@ -60,31 +60,46 @@ DATABASE_PATH=/data/thoughtful_frame.db
 
 **Save the file:** Press `Ctrl+X`, then `Y`, then `Enter`
 
-#### **4. Find Your Docker Network**
-```bash
-# List all Docker networks to find your Immich network
-docker network ls
-```
+#### **4. Configure Immich Connection (Choose One Option)**
 
-Look for a network like `immich_immich` or similar. Note the exact name.
-
-#### **5. Configure Docker Network**
+**Option A: Use Host Networking (Easiest - Recommended)**
 ```bash
-# Edit the docker-compose.yml file
+# Edit docker-compose.yml
 nano docker-compose.yml
 ```
 
-Find this section (around line 20):
+Find the `networks:` section and replace it with:
 ```yaml
-networks:
-  - immich-network
+network_mode: host
 ```
 
-Change `immich-network` to match your actual Immich network name (e.g., `immich_immich`).
+Remove the entire `networks:` section at the bottom of the file.
 
-**Save the file:** Press `Ctrl+X`, then `Y`, then `Enter`
+**Option B: Use Immich's External URL**
+If you prefer not to use host networking, use Immich's external URL:
+```bash
+# Edit your .env file
+nano .env
+```
 
-#### **6. Start the Application**
+Change `IMMICH_BASE_URL` to your Immich server's external URL:
+```env
+IMMICH_BASE_URL=http://your-unraid-ip:2283/api
+```
+
+Replace `your-unraid-ip` with your actual server IP (e.g., `192.168.1.100`).
+
+**Option C: Use Docker Network (Advanced)**
+Only if you specifically need container-to-container communication:
+```bash
+# Find your Immich network
+docker network ls | grep immich
+
+# Edit docker-compose.yml and set the correct network name
+nano docker-compose.yml
+```
+
+#### **5. Start the Application**
 ```bash
 # Build and start the container
 docker compose up -d --build
@@ -92,7 +107,7 @@ docker compose up -d --build
 
 Wait about 30 seconds for initialization...
 
-#### **7. Access Thoughtful Frame**
+#### **6. Access Thoughtful Frame**
 Open your web browser and navigate to:
 ```
 http://YOUR_UNRAID_IP:8421
@@ -100,7 +115,7 @@ http://YOUR_UNRAID_IP:8421
 
 Replace `YOUR_UNRAID_IP` with your Unraid server's local IP address.
 
-#### **8. Verify It's Working**
+#### **7. Verify It's Working**
 ```bash
 # Check container status
 docker ps
@@ -116,7 +131,8 @@ curl http://localhost:8421/api/health
 
 **Problem:** "Cannot reach Immich server"
 - ❌ Check `IMMICH_BASE_URL` in your `.env` file
-- ❌ Verify Docker network name matches exactly
+- ❌ If using host networking, ensure Immich is accessible on localhost
+- ❌ If using external URL, verify the IP/port is correct
 - ❌ Ensure Immich container is running (`docker ps`)
 
 **Problem:** Database errors

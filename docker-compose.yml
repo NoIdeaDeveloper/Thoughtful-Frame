@@ -18,12 +18,7 @@ services:
         max-size: "10m"
         max-file: "3"
         tags: "thoughtful-frame"
-    networks:
-      - immich-network
+    network_mode: host
 
 volumes:
   thoughtful-frame-data:
-
-networks:
-  immich-network:
-    external: true
