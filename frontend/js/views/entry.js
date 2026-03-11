@@ -1,5 +1,5 @@
 import { fetchEntry, deleteEntry, originalUrl, thumbnailUrl } from "../api.js";
-import { formatDate } from "../utils.js";
+import { formatDate, escapeHtml } from "../utils.js";
 import { showEntryModal } from "../components/modal.js";
 
 export async function renderEntry(container, entryId) {
@@ -71,6 +71,8 @@ export async function renderEntry(container, entryId) {
                 }
                 // Fallback to thumbnail if original fails
                 img.src = thumbnailUrl(img.dataset.assetId);
+                // Remove error handler to prevent infinite loops
+                img.onerror = null;
             };
         };
 
@@ -137,13 +139,17 @@ function showLightbox(src) {
     const lightbox = document.createElement("div");
     lightbox.className = "lightbox";
     lightbox.innerHTML = `<img src="${src}" alt="Full size photo">`;
-    lightbox.addEventListener("click", () => lightbox.remove());
-    document.addEventListener("keydown", function handler(e) {
+
+    const clickHandler = () => lightbox.remove();
+    lightbox.addEventListener("click", clickHandler, { once: true });
+
+    const keyHandler = (e) => {
         if (e.key === "Escape") {
             lightbox.remove();
-            document.removeEventListener("keydown", handler);
         }
-    });
+    };
+    document.addEventListener("keydown", keyHandler, { once: true });
+
     document.body.appendChild(lightbox);
 }
 
@@ -281,8 +287,4 @@ function showRemoveImagesModal(entryId, currentAssetIds) {
     });
 }
 
-function escapeHtml(str) {
-    const div = document.createElement("div");
-    div.textContent = str;
-    return div.innerHTML;
-}
+

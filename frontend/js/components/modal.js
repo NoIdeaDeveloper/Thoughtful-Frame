@@ -1,7 +1,21 @@
 import { thumbnailUrl, createEntry, updateEntry } from "../api.js";
+import { escapeHtml } from "../utils.js";
 
 const overlay = document.getElementById("modal-overlay");
 const container = document.getElementById("modal-container");
+
+/**
+ * Escape HTML attributes to prevent XSS in attribute contexts
+ * @param {string} str - The string to escape
+ * @returns {string} - The escaped string
+ */
+function escapeAttr(str) {
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+}
 
 export function showEntryModal(assetIds, existingEntry = null) {
     const isEdit = existingEntry !== null;
@@ -100,18 +114,4 @@ export function showEntryModal(assetIds, existingEntry = null) {
 export function closeModal() {
     overlay.classList.add("hidden");
     container.innerHTML = "";
-}
-
-function escapeHtml(str) {
-    const div = document.createElement("div");
-    div.textContent = str;
-    return div.innerHTML;
-}
-
-function escapeAttr(str) {
-    return str
-        .replace(/&/g, "&amp;")
-        .replace(/"/g, "&quot;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
 }

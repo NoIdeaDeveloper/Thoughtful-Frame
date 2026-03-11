@@ -19,9 +19,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Configuration
-IMMICH_PAGE_SIZE = int(os.environ.get('IMMICH_PAGE_SIZE', '100'))
-
 # Configure uvicorn logging to be more verbose
 uvicorn_logger = logging.getLogger("uvicorn")
 uvicorn_logger.setLevel(logging.DEBUG)

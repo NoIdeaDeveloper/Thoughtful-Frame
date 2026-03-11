@@ -1,5 +1,5 @@
 import { thumbnailUrl } from "../api.js";
-import { formatDate } from "../utils.js";
+import { formatDate, escapeHtml } from "../utils.js";
 
 export function renderEntryCard(entry) {
     const isMulti = entry.immich_asset_ids.length > 1;
@@ -43,10 +43,4 @@ export function renderEntryCard(entry) {
 function truncate(str, max) {
     if (str.length <= max) return str;
     return str.slice(0, max).trimEnd() + "...";
-}
-
-function escapeHtml(str) {
-    const div = document.createElement("div");
-    div.textContent = str;
-    return div.innerHTML;
 }
