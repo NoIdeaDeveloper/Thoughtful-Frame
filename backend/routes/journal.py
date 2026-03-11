@@ -168,21 +168,32 @@ async def update_entry(entry_id: int, data: EntryUpdate):
                 raise HTTPException(
                     status_code=400, detail="At least one asset ID is required"
                 )
-            async with db:
+            # Delete existing assets
+            await db.execute(
+                "DELETE FROM entry_assets WHERE entry_id = ?", (entry_id,)
+            )
+            # Insert new assets
+            for position, asset_id in enumerate(data.immich_asset_ids):
                 await db.execute(
-                    "DELETE FROM entry_assets WHERE entry_id = ?", (entry_id,)
+                    "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
+                    (entry_id, asset_id, position),
                 )
-                for position, asset_id in enumerate(data.immich_asset_ids):
-                    await db.execute(
-                        "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
-                        (entry_id, asset_id, position),
-                    )
+
+        # Commit transaction
+        await db.commit()
 
         cursor = await db.execute(
             "SELECT * FROM journal_entries WHERE id = ?", (entry_id,)
         )
         entry = await cursor.fetchone()
         return await _build_entry_response(db, entry)
+
+    except Exception as e:
+        # Rollback on error
+        await db.rollback()
+        logger.error(f"Failed to update entry: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to update entry: {str(e)}")
+
     finally:
         await db.close()
 
