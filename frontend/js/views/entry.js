@@ -25,7 +25,7 @@ export async function renderEntry(container, entryId) {
                     ${entry.immich_asset_ids
                         .map(
                             (id) =>
-                                `<img src="${originalUrl(id)}" loading="lazy" alt="Photo" data-asset-id="${id}">`
+                                `<img src="${originalUrl(id)}" loading="lazy" alt="Photo" data-asset-id="${id}" onerror="this.src='${thumbnailUrl(id)}'">`
                         )
                         .join("")}
                 </div>
@@ -33,7 +33,7 @@ export async function renderEntry(container, entryId) {
         } else {
             photosHtml = `
                 <div class="entry-detail-photos single">
-                    <img src="${originalUrl(entry.immich_asset_ids[0])}" alt="Photo">
+                    <img src="${originalUrl(entry.immich_asset_ids[0])}" alt="Photo" onerror="this.src='${thumbnailUrl(entry.immich_asset_ids[0])}'">
                 </div>
             `;
         }
