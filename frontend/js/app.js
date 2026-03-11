@@ -24,7 +24,8 @@ function route() {
         const view = link.dataset.view;
         const isActive =
             (view === "feed" && (hash === "#/" || hash === "#")) ||
-            (view === "browse" && hash.startsWith("#/browse"));
+            (view === "browse" && hash.startsWith("#/browse")) ||
+            (view === "settings" && hash.startsWith("#/settings"));
         link.classList.toggle("active", isActive);
     });
 }

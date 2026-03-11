@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 import httpx
 from backend.database import init_db, get_db
-from backend.routes import journal, immich_proxy
+from backend.routes import journal, immich_proxy, settings
 from backend import immich_client
 
 # Configure verbose logging
@@ -43,6 +43,7 @@ app = FastAPI(title="Thoughtful Frame", lifespan=lifespan)
 
 app.include_router(immich_proxy.router, prefix="/api/immich")
 app.include_router(journal.router, prefix="/api/journal")
+app.include_router(settings.router, prefix="/api")
 
 
 @app.get("/api/health")

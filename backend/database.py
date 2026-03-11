@@ -43,6 +43,13 @@ async def init_db():
             CREATE INDEX IF NOT EXISTS idx_entry_assets_asset_id
             ON entry_assets(immich_asset_id)
         """)
+        
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
         await db.commit()
     finally:
         await db.close()

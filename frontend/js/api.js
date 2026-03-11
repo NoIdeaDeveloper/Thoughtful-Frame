@@ -76,3 +76,19 @@ export async function checkAssetsWithEntries(assetIds) {
     const data = await res.json();
     return new Set(data.asset_ids_with_entries);
 }
+
+export async function getSettings() {
+    const res = await fetch(`${API_BASE}/settings`);
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+}
+
+export async function updateSettings(settings) {
+    const res = await fetch(`${API_BASE}/settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+}

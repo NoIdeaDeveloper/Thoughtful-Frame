@@ -95,7 +95,10 @@ export async function renderEntry(container, entryId) {
         if (isMulti) {
             const photosContainer = container.querySelector(".entry-detail-photos.multi");
             if (photosContainer) {
-                setupAutoSlidingGallery(photosContainer);
+                // Check if auto-sliding is enabled (default to true)
+                const autoSlideEnabled = localStorage.getItem("autoSlideEnabled");
+                const shouldAutoSlide = autoSlideEnabled !== "false"; // Default to true
+                setupAutoSlidingGallery(photosContainer, shouldAutoSlide);
             }
             
             // Lightbox functionality
@@ -293,7 +296,7 @@ function showRemoveImagesModal(entryId, currentAssetIds) {
     });
 
 
-function setupAutoSlidingGallery(photosContainer) {
+function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
     """
     Set up auto-sliding gallery for multi-photo entries
     """
@@ -431,8 +434,14 @@ function setupAutoSlidingGallery(photosContainer) {
             photosContainer.addEventListener("mouseleave", resumeSliding);
         }
         
-        // Start sliding automatically
-        startSliding();
+        // Start sliding automatically if enabled
+        if (autoSlide) {
+            startSliding();
+        } else {
+            // If auto-slide is disabled, show play button by default
+            controls.querySelector(".pause").classList.add("hidden");
+            controls.querySelector(".play").classList.remove("hidden");
+        }
         
         // Cleanup on page navigation
         window.addEventListener("beforeunload", stopSliding);

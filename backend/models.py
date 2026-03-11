@@ -36,3 +36,11 @@ class AssetIdsRequest(BaseModel):
 
 class AssetIdsWithEntriesResponse(BaseModel):
     asset_ids_with_entries: list[str]
+
+
+class SettingsResponse(BaseModel):
+    auto_slide_gallery: bool = True
+
+
+class SettingsUpdate(BaseModel):
+    auto_slide_gallery: bool
