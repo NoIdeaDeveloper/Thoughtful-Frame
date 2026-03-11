@@ -655,4 +655,42 @@ body {
     .selection-bar {
         padding: 12px 16px;
     }
+
+    /* Asset management modals */
+    .modal-asset-list {
+        max-height: 300px;
+        overflow-y: auto;
+        margin-bottom: 20px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 12px;
+        background: var(--card-bg);
+    }
+
+    .modal-asset-item {
+        display: flex;
+        align-items: center;
+        padding: 8px;
+        margin-bottom: 8px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .modal-asset-item:hover {
+        background: rgba(139, 115, 85, 0.05);
+    }
+
+    .modal-asset-item input[type="checkbox"] {
+        margin-right: 12px;
+    }
+
+    .modal-asset-item img {
+        width: 60px;
+        height: 60px;
+        object-fit: cover;
+        border-radius: 4px;
+        margin-right: 12px;
+    }
 }

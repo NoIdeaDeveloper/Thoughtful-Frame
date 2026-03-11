@@ -4,17 +4,28 @@ import { showEntryModal } from "../components/modal.js";
 
 let multiSelectActive = false;
 let selectedAssetIds = [];
+let entryIdForAdding = null;  // Track entry ID when adding images
+
+// Get URL parameters
+const urlParams = new URLSearchParams(window.location.search);
+const entryIdParam = urlParams.get('entry');
+const modeParam = urlParams.get('mode');
 
 export async function renderBrowse(container) {
     removeSelectionBar();
     multiSelectActive = false;
     selectedAssetIds = [];
+    entryIdForAdding = entryIdParam || null;
+
+    // Check if we're in "add images to entry" mode
+    const isAddMode = modeParam === 'add' && entryIdForAdding;
 
     container.innerHTML = `
         <div class="browse-container">
             <div class="browse-header">
-                <h2 class="browse-title">Your Photos</h2>
-                <button class="btn btn-secondary" id="toggle-select">Select Multiple</button>
+                <h2 class="browse-title">${isAddMode ? 'Select Photos to Add' : 'Your Photos'}</h2>
+                <button class="btn btn-secondary" id="toggle-select">${isAddMode ? 'Cancel' : 'Select Multiple'}</button>
+                ${isAddMode ? `<button class="btn btn-primary" id="add-to-entry">Add to Entry</button>` : ''}
             </div>
             <div class="photo-grid" id="photo-grid">
                 ${skeletonGrid(12)}
@@ -28,6 +39,7 @@ export async function renderBrowse(container) {
     const gridEl = document.getElementById("photo-grid");
     const loadMoreEl = document.getElementById("browse-load-more");
     const toggleBtn = document.getElementById("toggle-select");
+    const addToEntryBtn = document.getElementById("add-to-entry");
 
     let currentPage = 1;
     const pageSize = 50;
@@ -36,7 +48,7 @@ export async function renderBrowse(container) {
     // Toggle multi-select mode
     toggleBtn.addEventListener("click", () => {
         multiSelectActive = !multiSelectActive;
-        toggleBtn.textContent = multiSelectActive ? "Cancel Selection" : "Select Multiple";
+        toggleBtn.textContent = multiSelectActive ? "Cancel Selection" : (isAddMode ? 'Cancel' : 'Select Multiple');
         gridEl.classList.toggle("multi-select-active", multiSelectActive);
 
         if (!multiSelectActive) {
@@ -47,6 +59,40 @@ export async function renderBrowse(container) {
             removeSelectionBar();
         }
     });
+
+    // Handle "Add to Entry" button
+    if (addToEntryBtn) {
+        addToEntryBtn.addEventListener("click", async () => {
+            if (selectedAssetIds.length === 0) {
+                alert("Please select at least one photo to add to the entry.");
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/journal/entries/${entryIdForAdding}/assets`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ immich_asset_ids: selectedAssetIds })
+                });
+
+                if (!response.ok) throw new Error(await response.text());
+
+                const data = await response.json();
+                alert(`Successfully added ${data.added.length} images to the entry!`);
+                
+                // Clear selection and return to entry view
+                selectedAssetIds = [];
+                gridEl.querySelectorAll(".photo-grid-item.selected").forEach((el) => {
+                    el.classList.remove("selected");
+                });
+                
+                // Navigate back to the entry
+                window.location.hash = `#/entry/${entryIdForAdding}`;
+            } catch (err) {
+                alert("Failed to add images to entry: " + err.message);
+            }
+        });
+    }
 
     try {
         const data = await fetchAssets(currentPage, pageSize);

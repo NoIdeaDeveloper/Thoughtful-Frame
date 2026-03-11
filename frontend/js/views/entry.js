@@ -49,6 +49,10 @@ export async function renderEntry(container, entryId) {
                 <div class="entry-detail-body">${escapeHtml(entry.body)}</div>
                 <div class="entry-detail-actions">
                     <button class="btn btn-secondary" id="entry-edit">Edit</button>
+                    ${entry.immich_asset_ids.length > 1 ? `
+                        <button class="btn btn-secondary" id="entry-remove-images">Remove Images</button>
+                    ` : ''}
+                    <button class="btn btn-secondary" id="entry-add-images">Add Images</button>
                     <button class="btn btn-danger" id="entry-delete">Delete</button>
                     <a href="#/" class="btn btn-secondary">Back to Journal</a>
                 </div>
@@ -68,6 +72,19 @@ export async function renderEntry(container, entryId) {
         document.getElementById("entry-edit").addEventListener("click", () => {
             showEntryModal(entry.immich_asset_ids, entry);
         });
+
+        // Add images
+        document.getElementById("entry-add-images").addEventListener("click", () => {
+            showAddImagesModal(entry.id);
+        });
+
+        // Remove images (only shown for multi-image entries)
+        const removeBtn = document.getElementById("entry-remove-images");
+        if (removeBtn) {
+            removeBtn.addEventListener("click", () => {
+                showRemoveImagesModal(entry.id, entry.immich_asset_ids);
+            });
+        }
 
         // Delete
         document.getElementById("entry-delete").addEventListener("click", () => {
@@ -134,6 +151,102 @@ function showDeleteConfirm(entryId) {
             btn.disabled = false;
             btn.textContent = "Delete";
             alert("Failed to delete: " + err.message);
+        }
+    });
+}
+
+function showAddImagesModal(entryId) {
+    const overlay = document.getElementById("modal-overlay");
+    const container = document.getElementById("modal-container");
+
+    container.innerHTML = `
+        <h2 class="modal-title">Add Images to Entry</h2>
+        <p style="margin-bottom: 20px; color: var(--text-muted);">Select photos to add to this journal entry.</p>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="add-images-cancel">Cancel</button>
+            <button class="btn btn-primary" id="add-images-select">Select Photos</button>
+        </div>
+    `;
+
+    overlay.classList.remove("hidden");
+
+    document.getElementById("add-images-cancel").addEventListener("click", () => {
+        overlay.classList.add("hidden");
+        container.innerHTML = "";
+    });
+
+    document.getElementById("add-images-select").addEventListener("click", () => {
+        overlay.classList.add("hidden");
+        container.innerHTML = "";
+        // Redirect to browse view with multi-select enabled and this entry ID
+        window.location.hash = `#/browse?entry=${entryId}&mode=add`;
+    });
+}
+
+function showRemoveImagesModal(entryId, currentAssetIds) {
+    const overlay = document.getElementById("modal-overlay");
+    const container = document.getElementById("modal-container");
+
+    container.innerHTML = `
+        <h2 class="modal-title">Remove Images</h2>
+        <p style="margin-bottom: 20px; color: var(--text-muted);">Select which images to remove from this entry.</p>
+        <div class="modal-asset-list" style="max-height: 300px; overflow-y: auto; margin-bottom: 20px;">
+            ${currentAssetIds.map(assetId => `
+                <label class="modal-asset-item">
+                    <input type="checkbox" value="${assetId}" class="asset-checkbox">
+                    <img src="${thumbnailUrl(assetId)}" loading="lazy" style="width: 60px; height: 60px; object-fit: cover; margin-right: 10px;">
+                    ${assetId}
+                </label>
+            `).join("")}
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="remove-images-cancel">Cancel</button>
+            <button class="btn btn-danger" id="remove-images-confirm">Remove Selected</button>
+        </div>
+    `;
+
+    overlay.classList.remove("hidden");
+
+    document.getElementById("remove-images-cancel").addEventListener("click", () => {
+        overlay.classList.add("hidden");
+        container.innerHTML = "";
+    });
+
+    document.getElementById("remove-images-confirm").addEventListener("click", async () => {
+        const btn = document.getElementById("remove-images-confirm");
+        btn.disabled = true;
+        btn.textContent = "Removing...";
+
+        try {
+            const checkboxes = document.querySelectorAll(".asset-checkbox:checked");
+            const assetIds = Array.from(checkboxes).map(cb => cb.value);
+
+            if (assetIds.length === 0) {
+                alert("Please select at least one image to remove.");
+                btn.disabled = false;
+                btn.textContent = "Remove Selected";
+                return;
+            }
+
+            const response = await fetch(`/api/journal/entries/${entryId}/assets`, {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ asset_ids: assetIds })
+            });
+
+            if (!response.ok) throw new Error(await response.text());
+
+            const data = await response.json();
+            overlay.classList.add("hidden");
+            container.innerHTML = "";
+            
+            // Refresh the entry view
+            await renderEntry(document.querySelector(".main-container"), entryId);
+            alert(`Successfully removed ${data.removed} image(s)!`);
+        } catch (err) {
+            btn.disabled = false;
+            btn.textContent = "Remove Selected";
+            alert("Failed to remove images: " + err.message);
         }
     });
 }
