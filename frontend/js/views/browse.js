@@ -96,6 +96,8 @@ export async function renderBrowse(container) {
 
     try {
         const data = await fetchAssets(currentPage, pageSize);
+        console.log("Full API response:", data);
+        
         const assets = extractAssets(data);
         allLoadedAssets = assets;
 
@@ -105,17 +107,26 @@ export async function renderBrowse(container) {
         gridEl.innerHTML = "";
         gridEl.appendChild(renderPhotoGrid(assets, assetsWithEntries));
 
-        console.log("Asset data received:", data);
-        console.log(`Current page: ${currentPage}, Page size: ${pageSize}, Items: ${extractAssets(data).length}`);
+        console.log(`Current page: ${currentPage}, Page size: ${pageSize}, Items loaded: ${assets.length}`);
+        
+        // Debug the pagination data
+        if (data.assets) {
+            console.log(`Immich total: ${data.assets.total || 'N/A'}, items: ${data.assets.items ? data.assets.items.length : 'N/A'}`);
+        } else {
+            console.log("No assets data in response");
+        }
         
         const showLoadMore = hasMorePages(data, currentPage, pageSize);
-        console.log(`Show Load More button: ${showLoadMore}`);
+        console.log(`hasMorePages result: ${showLoadMore}`);
+        console.log(`Calculation: total=${data.assets?.total || 'unknown'}, current=${currentPage * pageSize}`);
         
-        if (showLoadMore) {
+        // Force show Load More button for testing
+        // TODO: Remove this after debugging
+        if (assets.length > 0) {
             loadMoreEl.classList.remove("hidden");
+            console.log("DEBUG: Forcing Load More button to show");
         } else {
             loadMoreEl.classList.add("hidden");
-            console.log("No more pages detected");
         }
 
         attachGridClickHandlers(gridEl);

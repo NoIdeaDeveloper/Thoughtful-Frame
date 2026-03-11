@@ -440,6 +440,18 @@ async def get_cached_or_convert_image(asset_id: str, is_thumbnail: bool = False)
 async def list_assets(page: int = 1, page_size: int = 50):
     try:
         data = await immich_client.get_assets(page, page_size)
+        
+        # Ensure we have total count for pagination
+        if data and "assets" in data and "items" in data["assets"]:
+            items = data["assets"]["items"]
+            # If Immich didn't provide total, estimate it
+            if "total" not in data["assets"] or data["assets"]["total"] is None:
+                # Estimate total based on what we've seen so far
+                # This is a fallback when Immich doesn't provide total count
+                estimated_total = max(len(items), page_size)
+                data["assets"]["total"] = estimated_total
+                logger.warning(f"Immich didn't provide total count, estimated as {estimated_total}")
+        
         return data
     except httpx.ConnectError:
         raise HTTPException(
