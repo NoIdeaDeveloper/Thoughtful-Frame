@@ -84,10 +84,17 @@ cp .env.example .env
 nano .env
 ```
 
-**Only change these values:**
+**Configure these values:**
 ```env
 # Your Immich API key (required - get from Immich settings)
 IMMICH_API_KEY=your_actual_api_key_here
+
+# Database storage location (optional)
+# Default: ./data (creates data directory next to docker-compose.yml)
+# Example alternatives:
+# DATABASE_PATH=/mnt/user/appdata/thoughtful-frame/data
+# DATABASE_PATH=./thoughtful_frame_data
+DATABASE_PATH=./data
 
 # Optional: Change if your Immich uses different IP/port
 # IMMICH_BASE_URL=http://192.168.1.180:8080/api
@@ -115,6 +122,33 @@ http://your-unraid-ip:8421
 ```
 (Replace `your-unraid-ip` with your actual Unraid server IP if different from 192.168.1.180)
 
+#### **4.5. Volume Configuration (Optional)**
+
+**Default Setup (Recommended):**
+```yaml
+# Uses ./data directory (created automatically)
+volumes:
+  - ${DATABASE_PATH:-./data}:/data
+```
+
+**Alternative: Specific Unraid Location**
+```bash
+# Edit .env file
+nano .env
+
+# Change to your preferred location
+DATABASE_PATH=/mnt/user/appdata/thoughtful-frame/data
+
+# Recreate container
+docker compose up -d --force-recreate
+```
+
+**Volume Benefits:**
+- ✅ **Persistent storage** - database survives container restarts
+- ✅ **Easy backups** - just copy the volume directory
+- ✅ **Flexible location** - works with any path
+- ✅ **Default works** - no configuration needed for basic use
+
 #### **5. Verify It's Working**
 ```bash
 # Check container status
@@ -130,28 +164,45 @@ curl http://localhost:8421/api/health
 docker exec -it thoughtful-frame curl http://192.168.1.180:8080/api/server-info
 ```
 
-#### **6. Monitor Docker Health Checks**
+#### **6. Docker Health Checks**
 
-The container includes **automatic health monitoring**:
-```bash
-# Check health status
-docker inspect --format='{{json .State.Health}}' thoughtful-frame | jq
+The container includes **automatic health monitoring** (similar to the reference application):
 
-# View health check logs
-docker events --filter 'event=health_status'
-
-# Manual health check
-curl -s http://localhost:8421/api/health | jq
+```yaml
+# Health check configuration (from Dockerfile)
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=15s
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"
 ```
 
-**Health Check Features:**
-- ✅ **Automatic checks every 30 seconds**
-- ✅ **5 retries before marking unhealthy**
-- ✅ **15-second startup grace period**
-- ✅ **10-second timeout per check**
-- ✅ **Detailed status information** (database, Immich, application)
-- ✅ **Timestamped responses**
-- ✅ **Performance metrics** (Immich response time)
+**Monitoring Commands:**
+```bash
+# Check health status (Unraid/Docker)
+docker inspect --format='{{.State.Health.Status}}' thoughtful-frame
+
+# View full health details
+docker inspect thoughtful-frame | grep -A 20 "Health"
+
+# Monitor health events in real-time
+watch -n 1 "docker ps --format 'table {{.Name}}\t{{.Status}}\t{{.Health}}'"
+
+# Manual health check
+curl http://localhost:8421/api/health
+```
+
+**Health Check Configuration:**
+- **Interval:** 30 seconds (same as reference)
+- **Timeout:** 10 seconds (same as reference)
+- **Retries:** 3 attempts before unhealthy (same as reference)
+- **Start Period:** 15 seconds grace period (same as reference)
+- **Endpoint:** `/api/health` (comprehensive status)
+
+**Matches Reference Application:**
+- ✅ Same health check interval (30s)
+- ✅ Same timeout (10s)
+- ✅ Same retry count (3)
+- ✅ Same start period (15s)
+- ✅ Similar Python-based health check
+- ✅ JSON-file logging with rotation
 
 **Example Healthy Response:**
 ```json

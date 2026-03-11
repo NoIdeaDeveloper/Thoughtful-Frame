@@ -9,7 +9,7 @@ services:
       - IMMICH_API_KEY=${IMMICH_API_KEY}
       - DATABASE_PATH=${DATABASE_PATH:-/data/thoughtful_frame.db}
     volumes:
-      - thoughtful-frame-data:/data
+      - ${DATA_PATH:-./data}:/data
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -20,3 +20,4 @@ services:
 
 volumes:
   thoughtful-frame-data:
+    driver: local
