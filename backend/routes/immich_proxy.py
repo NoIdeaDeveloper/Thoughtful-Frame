@@ -569,17 +569,15 @@ async def test_heic_conversion_with_asset(asset_id: str):
         # Fetch the original image
         image_bytes, content_type = await immich_client.get_asset_original(asset_id)
         
-        if content_type.lower() != 'image/heic':
-            return {
-                "asset_id": asset_id,
-                "content_type": content_type,
-                "is_heic": False,
-                "message": "Asset is not HEIC format"
-            }
-        
-        # Try to convert
+        # Try to convert (test all formats)
         try:
-            converted_bytes, converted_type = convert_heic_to_jpeg(image_bytes)
+            if content_type.lower() == 'image/heic':
+                converted_bytes, converted_type = convert_heic_to_webp(image_bytes)
+            elif content_type.lower() == 'image/dng':
+                converted_bytes, converted_type = convert_dng_to_webp(image_bytes)
+            else:
+                converted_bytes, converted_type = convert_to_webp(image_bytes, content_type)
+            
             return {
                 "asset_id": asset_id,
                 "original_size": len(image_bytes),
@@ -587,21 +585,89 @@ async def test_heic_conversion_with_asset(asset_id: str):
                 "original_type": content_type,
                 "converted_type": converted_type,
                 "success": True,
-                "message": "HEIC conversion successful"
+                "message": "Conversion successful"
             }
         except Exception as e:
             return {
                 "asset_id": asset_id,
                 "error": str(e),
                 "success": False,
-                "message": "HEIC conversion failed"
+                "message": "Conversion failed"
             }
         
     except Exception as e:
-        logger.error(f"HEIC conversion test failed for asset {asset_id}: {e}", exc_info=True)
+        logger.error(f"Conversion test failed for asset {asset_id}: {e}", exc_info=True)
         return {
             "asset_id": asset_id,
             "error": str(e),
             "success": False,
-            "message": "Failed to test HEIC conversion"
+            "message": "Failed to test conversion"
+        }
+
+
+@router.get("/debug/cache-stats")
+async def get_cache_statistics():
+    """
+    Get statistics about the image cache
+    """
+    try:
+        cache_files = list(Path(CACHE_DIR).glob("*.webp"))
+        
+        total_files = len(cache_files)
+        total_size = sum(f.stat().st_size for f in cache_files)
+        total_size_mb = total_size / (1024 * 1024)
+        
+        # Get age distribution
+        now = time.time()
+        ages = [now - f.stat().st_mtime for f in cache_files]
+        avg_age = sum(ages) / len(ages) if ages else 0
+        
+        return {
+            "cache_stats": {
+                "total_files": total_files,
+                "total_size_mb": round(total_size_mb, 2),
+                "average_age_seconds": round(avg_age, 1),
+                "max_size_mb": CACHE_SIZE_LIMIT_MB,
+                "ttl_seconds": CACHE_TTL_SECONDS
+            },
+            "status": "ok"
+        }
+        
+    except Exception as e:
+        logger.error(f"Cache stats failed: {e}", exc_info=True)
+        return {
+            "error": str(e),
+            "status": "error"
+        }
+
+
+@router.delete("/debug/cache-clear")
+async def clear_cache():
+    """
+    Clear the entire image cache
+    """
+    try:
+        cache_files = list(Path(CACHE_DIR).glob("*.webp"))
+        
+        for file in cache_files:
+            try:
+                file.unlink()
+            except Exception as e:
+                logger.error(f"Failed to delete cache file {file}: {e}")
+        
+        remaining_files = list(Path(CACHE_DIR).glob("*.webp"))
+        cleared_count = len(cache_files) - len(remaining_files)
+        
+        return {
+            "message": f"Cache cleared successfully",
+            "files_cleared": cleared_count,
+            "files_remaining": len(remaining_files),
+            "status": "ok"
+        }
+        
+    except Exception as e:
+        logger.error(f"Cache clearing failed: {e}", exc_info=True)
+        return {
+            "error": str(e),
+            "status": "error"
         }

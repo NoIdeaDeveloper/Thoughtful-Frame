@@ -292,7 +292,7 @@ async def add_assets_to_entry(entry_id: int, data: EntryUpdate):
 
 
 @router.delete("/entries/{entry_id}/assets")
-async def remove_assets_from_entry(entry_id: int, asset_ids: list[str]):
+async def remove_assets_from_entry(entry_id: int, request: AssetIdsRequest):
     """
     Remove specific assets from an entry.
     
@@ -301,6 +301,7 @@ async def remove_assets_from_entry(entry_id: int, asset_ids: list[str]):
         "asset_ids": ["asset_id_1", "asset_id_2"]
     }
     """
+    asset_ids = request.asset_ids
     if not asset_ids:
         raise HTTPException(status_code=400, detail="At least one asset ID is required")
     
