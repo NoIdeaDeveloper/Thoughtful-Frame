@@ -77,7 +77,7 @@ export async function renderFeed(container) {
                 entriesEl.appendChild(card);
                 console.log(`Rendered entry ${entry.id}`);
             } catch (renderError) {
-                console.error(`Failed to render entry ${entry.id}:", renderError);
+                console.error(`Failed to render entry ${entry.id}:`, renderError);
                 // Skip this entry but continue with others
                 continue;
             }
