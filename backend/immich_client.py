@@ -1,9 +1,13 @@
 import logging
+import os
 import httpx
 from backend.config import IMMICH_BASE_URL, IMMICH_API_KEY
 
 _client: httpx.AsyncClient | None = None
 logger = logging.getLogger(__name__)
+
+# Get page size from environment or use default
+IMMICH_PAGE_SIZE = int(os.environ.get('IMMICH_PAGE_SIZE', '100'))
 
 
 async def close():
@@ -25,15 +29,17 @@ def _get_client() -> httpx.AsyncClient:
     return _client
 
 
-async def get_assets(page: int = 1, page_size: int = 50) -> dict:
-    logger.debug(f"Fetching assets from Immich - page: {page}, page_size: {page_size}")
+async def get_assets(page: int = 1, page_size: int = None) -> dict:
+    # Use configured page size if not specified
+    actual_page_size = page_size if page_size is not None else IMMICH_PAGE_SIZE
+    logger.debug(f"Fetching assets from Immich - page: {page}, page_size: {actual_page_size}")
     client = _get_client()
     try:
         response = await client.post(
             "/search/metadata",
             json={
                 "page": page,
-                "size": page_size,
+                "size": actual_page_size,
                 "type": "IMAGE",
                 "order": "desc",
             },

@@ -1,4 +1,5 @@
 import logging
+import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -17,6 +18,9 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+# Configuration
+IMMICH_PAGE_SIZE = int(os.environ.get('IMMICH_PAGE_SIZE', '100'))
 
 # Configure uvicorn logging to be more verbose
 uvicorn_logger = logging.getLogger("uvicorn")

@@ -1,6 +1,6 @@
 const API_BASE = "/api";
 
-export async function fetchAssets(page = 1, pageSize = 50) {
+export async function fetchAssets(page = 1, pageSize = 100) {
     const res = await fetch(`${API_BASE}/immich/assets?page=${page}&page_size=${pageSize}`);
     if (!res.ok) throw new Error(await res.text());
     return res.json();
