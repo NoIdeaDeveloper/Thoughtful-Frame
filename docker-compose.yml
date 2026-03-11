@@ -16,12 +16,7 @@ services:
       options:
         max-size: "10m"
         max-file: "5"
-    networks:
-      - thoughtful-frame-network
+    network_mode: bridge
 
 volumes:
   thoughtful-frame-data:
-
-networks:
-  thoughtful-frame-network:
-    driver: bridge

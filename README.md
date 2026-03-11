@@ -18,6 +18,41 @@ A journaling app for your Immich photo library
 - Immich API key (Immich → Account Settings → API Keys)
 - Docker
 
+## 🌉 Your Unraid Network Setup
+
+### Current Configuration
+
+**✅ Your Setup:**
+- **Unraid Server IP:** `192.168.1.180`
+- **Immich URL:** `http://192.168.1.180:8080/api`
+- **Network Mode:** `bridge` (main Unraid network)
+- **Thoughtful Frame Port:** `8421`
+
+### How It Works
+
+```mermaid
+graph LR
+    A[Your Browser] -->|http://192.168.1.180:8421| B[Thoughtful Frame]
+    B -->|http://192.168.1.180:8080| C[Immich Server]
+    D[Other Devices] -->|http://192.168.1.180:8421| B
+```
+
+Both services run on your Unraid server's main bridge network.
+
+### Why This Works Well
+
+**✅ Benefits:**
+- **Simple setup**: Uses standard bridge networking
+- **Easy access**: Both services on same server IP
+- **No port conflicts**: Different ports (8421 vs 8080)
+- **Standard configuration**: Works with default Unraid settings
+- **Easy troubleshooting**: Direct IP communication
+
+**⚠️ Considerations:**
+- Both services must run on different ports
+- Firewall must allow both ports
+- No container-to-container optimization (uses external URLs)
+
 ## 🚀 Beginner-Friendly Installation Guide
 
 ### Step-by-Step Setup (Unraid)
@@ -60,44 +95,90 @@ DATABASE_PATH=/data/thoughtful_frame.db
 
 **Save the file:** Press `Ctrl+X`, then `Y`, then `Enter`
 
-#### **4. Configure Immich Connection (Choose One Option)**
+#### **4. Find Your Immich Network**
 
-**Option A: Use Host Networking (Easiest - Recommended)**
+Since you want to use the same network as Immich:
+
+```bash
+# List all Docker networks and find your Immich network
+docker network ls
+```
+
+Look for a network name like:
+- `immich_immich` (common default)
+- `immich_default` 
+- `your-stack-name_immich`
+- Or any network containing "immich"
+
+**Note the exact network name** - you'll need it for the next step.
+
+#### **5. Configure Docker Network**
+
 ```bash
 # Edit docker-compose.yml
 nano docker-compose.yml
 ```
 
-Find the `networks:` section and replace it with:
+Find the networks section (around line 20):
 ```yaml
-network_mode: host
+networks:
+  - thoughtful-frame-network
 ```
 
-Remove the entire `networks:` section at the bottom of the file.
+Replace it with your Immich network name:
+```yaml
+networks:
+  - your-immich-network-name
+```
 
-**Option B: Use Immich's External URL**
-If you prefer not to use host networking, use Immich's external URL:
+Also **remove** the `networks:` section at the bottom of the file.
+
+**Example:** If your Immich network is `immich_immich`:
+```yaml
+networks:
+  - immich_immich
+```
+
+#### **6. Configure for Your Unraid Setup**
+
+Since you're using the main bridge network and Immich is at `192.168.1.180:8080`:
+
 ```bash
 # Edit your .env file
 nano .env
 ```
 
-Change `IMMICH_BASE_URL` to your Immich server's external URL:
+**Use your actual Immich URL:**
 ```env
-IMMICH_BASE_URL=http://your-unraid-ip:2283/api
+# Your Unraid server IP and Immich port
+IMMICH_BASE_URL=http://192.168.1.180:8080/api
+
+# Keep the API key from your Immich settings
+IMMICH_API_KEY=your_actual_api_key_here
+
+# Database path (leave as default)
+DATABASE_PATH=/data/thoughtful_frame.db
 ```
 
-Replace `your-unraid-ip` with your actual server IP (e.g., `192.168.1.100`).
+**Save the file:** Press `Ctrl+X`, then `Y`, then `Enter`
 
-**Option C: Use Docker Network (Advanced)**
-Only if you specifically need container-to-container communication:
+**Option C: Share Immich's Network (Advanced)**
+If you want Thoughtful Frame to communicate directly with Immich:
 ```bash
-# Find your Immich network
+# Find your Immich network name
 docker network ls | grep immich
 
-# Edit docker-compose.yml and set the correct network name
+# Edit docker-compose.yml
 nano docker-compose.yml
 ```
+
+Replace the network section with your Immich network name:
+```yaml
+networks:
+  - your-immich-network-name
+```
+
+And remove the `networks:` section at the bottom.
 
 #### **5. Start the Application**
 ```bash
@@ -129,11 +210,43 @@ curl http://localhost:8421/api/health
 
 ### 🎯 Troubleshooting Tips
 
-**Problem:** "Cannot reach Immich server"
-- ❌ Check `IMMICH_BASE_URL` in your `.env` file
-- ❌ If using host networking, ensure Immich is accessible on localhost
-- ❌ If using external URL, verify the IP/port is correct
-- ❌ Ensure Immich container is running (`docker ps`)
+**Problem:** "Cannot reach Immich server" (Your Setup)
+- ❌ Check `.env` file has correct URL:
+  ```bash
+  cat .env | grep IMMICH_BASE_URL
+  ```
+  Should show: `IMMICH_BASE_URL=http://192.168.1.180:8080/api`
+
+- ❌ Test Immich connectivity from host:
+  ```bash
+  curl http://192.168.1.180:8080/api/server-info
+  ```
+
+- ❌ Test from Thoughtful Frame container:
+  ```bash
+  docker exec -it thoughtful-frame curl http://192.168.1.180:8080/api/server-info
+  ```
+
+- ❌ Check firewall allows port 8080:
+  ```bash
+  telnet 192.168.1.180 8080
+  ```
+
+- ❌ Verify Immich is running:
+  ```bash
+  docker ps | grep immich
+  ```
+
+**Your Setup Specific:**
+- ✅ **Simple bridge networking** - uses standard Unraid network
+- ✅ **Direct IP communication** - no Docker DNS needed
+- ✅ **Easy to debug** - standard network tools work
+- ⚠️ **Both services on same server** - ensure no resource conflicts
+
+**Quick Fixes:**
+- **Port conflict?** Change Thoughtful Frame port in docker-compose.yml
+- **Firewall blocking?** Check Unraid firewall settings for port 8080
+- **Immich not responding?** Restart Immich container first
 
 **Problem:** Database errors
 - ❌ Check file permissions: `chmod -R 777 /mnt/user/appdata/thoughtful-frame/data`
