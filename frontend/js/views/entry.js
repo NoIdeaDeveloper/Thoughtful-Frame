@@ -25,7 +25,7 @@ export async function renderEntry(container, entryId) {
                     ${entry.immich_asset_ids
                         .map(
                             (id) =>
-                                `<img src="${originalUrl(id)}" loading="lazy" alt="Photo" data-asset-id="${id}" onerror="this.src='${thumbnailUrl(id)}'">`
+                                `<img src="${originalUrl(id)}" loading="lazy" alt="Photo" data-asset-id="${id}">`
                         )
                         .join("")}
                 </div>
@@ -33,7 +33,7 @@ export async function renderEntry(container, entryId) {
         } else {
             photosHtml = `
                 <div class="entry-detail-photos single">
-                    <img src="${originalUrl(entry.immich_asset_ids[0])}" alt="Photo" onerror="this.src='${thumbnailUrl(entry.immich_asset_ids[0])}'">
+                    <img src="${originalUrl(entry.immich_asset_ids[0])}" alt="Photo" data-asset-id="${entry.immich_asset_ids[0]}">
                 </div>
             `;
         }
@@ -63,16 +63,22 @@ export async function renderEntry(container, entryId) {
         `;
 
         // Add error handling for image loading
-        const errorHandler = () => {
-            const errorDiv = document.getElementById("image-load-errors");
-            if (errorDiv) {
-                errorDiv.style.display = "block";
-            }
+        const errorHandler = (img) => {
+            return () => {
+                const errorDiv = document.getElementById("image-load-errors");
+                if (errorDiv) {
+                    errorDiv.style.display = "block";
+                }
+                // Fallback to thumbnail if original fails
+                img.src = thumbnailUrl(img.dataset.assetId);
+            };
         };
 
         // Add event listeners for all images
         container.querySelectorAll("img").forEach((img) => {
-            img.onerror = errorHandler;
+            if (img.dataset.assetId) {
+                img.onerror = errorHandler(img);
+            }
         });
 
         // Retry button

@@ -64,6 +64,11 @@ async def get_thumbnail(asset_id: str):
             status_code=e.response.status_code,
             detail=f"Immich returned an error: {e.response.status_code}",
         )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch thumbnail image: {str(e)}",
+        )
 
 
 @router.get("/assets/{asset_id}/original")
@@ -89,4 +94,9 @@ async def get_original(asset_id: str):
         raise HTTPException(
             status_code=e.response.status_code,
             detail=f"Immich returned an error: {e.response.status_code}",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch original image: {str(e)}",
         )

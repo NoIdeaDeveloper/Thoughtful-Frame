@@ -42,7 +42,7 @@ export async function renderBrowse(container) {
     const addToEntryBtn = document.getElementById("add-to-entry");
 
     let currentPage = 1;
-    const pageSize = 50;
+    const pageSize = 100;
     let allLoadedAssets = [];
 
     // Toggle multi-select mode
