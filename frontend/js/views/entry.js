@@ -622,4 +622,3 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
     }
 }
 
-

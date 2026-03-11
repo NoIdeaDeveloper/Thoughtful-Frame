@@ -12,7 +12,7 @@ const entryIdParam = urlParams.get('entry');
 const modeParam = urlParams.get('mode');
 
 // Check sessionStorage for entry ID if not in URL (for add images workflow)
-let entryIdForAdding = entryIdParam;
+entryIdForAdding = entryIdParam;
 if (!entryIdForAdding && modeParam === 'add') {
     entryIdForAdding = sessionStorage.getItem('addImagesToEntry');
     if (entryIdForAdding) {
