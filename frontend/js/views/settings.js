@@ -62,12 +62,53 @@ export async function renderSettings(container) {
                 console.error("Failed to update settings:", error);
                 // Revert the toggle if update failed
                 e.target.checked = !isEnabled;
-                alert("Failed to save settings. Please try again.");
+                
+                // Show user-friendly error message
+                const errorMsg = error.message.includes("Failed to save") 
+                    ? error.message 
+                    : "Failed to save settings. Please check your connection and try again.";
+                
+                const errorElement = document.createElement("div");
+                errorElement.className = "settings-error";
+                errorElement.style.color = "#c0392b";
+                errorElement.style.marginTop = "8px";
+                errorElement.style.fontSize = "0.85rem";
+                errorElement.textContent = errorMsg;
+                
+                // Remove any existing error message
+                const existingError = document.querySelector(".settings-error");
+                if (existingError) existingError.remove();
+                
+                toggle.parentNode.appendChild(errorElement);
+                
+                // Re-enable the toggle
+                toggle.disabled = false;
+                
+                // Auto-remove error after 5 seconds
+                setTimeout(() => {
+                    errorElement.remove();
+                }, 5000);
             }
         });
         
     } catch (error) {
         console.error("Failed to load settings:", error);
+        
+        // Show user-friendly error message
+        const errorMessage = document.createElement("div");
+        errorMessage.className = "error-message";
+        errorMessage.style.color = "var(--accent)";
+        errorMessage.style.margin = "16px 0";
+        errorMessage.style.padding = "12px";
+        errorMessage.style.background = "rgba(139, 115, 85, 0.1)";
+        errorMessage.style.borderRadius = "var(--radius)";
+        errorMessage.textContent = "Could not load settings. Using local preferences. Some features may be limited.";
+        
+        const settingsTitle = document.querySelector(".settings-title");
+        if (settingsTitle) {
+            settingsTitle.parentNode.insertBefore(errorMessage, settingsTitle.nextSibling);
+        }
+        
         // Use localStorage fallback if API fails
         const savedPreference = localStorage.getItem("autoSlideEnabled");
         if (savedPreference !== null) {

@@ -15,6 +15,12 @@ export async function renderEntry(container, entryId) {
     `;
 
     try {
+        // Clean up any existing gallery from previous entry
+        const existingGallery = document.querySelector(".entry-detail-photos.multi");
+        if (existingGallery && existingGallery._cleanupGallery) {
+            existingGallery._cleanupGallery();
+        }
+        
         const entry = await fetchEntry(entryId);
         const isMulti = entry.immich_asset_ids.length > 1;
 
@@ -313,11 +319,11 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
         // Only set up sliding if there are multiple images
         const images = photosContainer.querySelectorAll("img");
         if (images.length <= 1) {
-            console.log("Only one image, no sliding needed");
+            // console.log("Only one image, no sliding needed");
             return;
         }
         
-        console.log(`Setting up auto-sliding gallery with ${images.length} images`);
+        // console.log(`Setting up auto-sliding gallery with ${images.length} images`);
         
         // Add gallery controls
         const controls = document.createElement("div");
@@ -366,20 +372,20 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
                 imagesWrapper.style.transform = `translateX(-${currentPosition}px)`;
             }, slideInterval);
             
-            console.log("Auto-sliding started");
+            // console.log("Auto-sliding started");
         }
         
         function stopSliding() {
             if (slideIntervalId) {
                 clearInterval(slideIntervalId);
                 slideIntervalId = null;
-                console.log("Auto-sliding stopped");
+                // console.log("Auto-sliding stopped");
             }
         }
         
         function pauseSliding() {
             isPaused = true;
-            console.log("Sliding paused");
+            // console.log("Sliding paused");
         }
         
         function resumeSliding() {
@@ -387,7 +393,7 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
             if (!slideIntervalId) {
                 startSliding();
             }
-            console.log("Sliding resumed");
+            // console.log("Sliding resumed");
         }
         
         function slideTo(position) {
@@ -446,8 +452,23 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
         // Cleanup on page navigation
         window.addEventListener("beforeunload", stopSliding);
         
+        // Store cleanup function for manual cleanup
+        photosContainer._cleanupGallery = () => {
+            stopSliding();
+            const controls = photosContainer.nextElementSibling;
+            if (controls && controls.className === "gallery-controls") {
+                controls.querySelector(".pause")?.removeEventListener("click", pauseSliding);
+                controls.querySelector(".play")?.removeEventListener("click", resumeSliding);
+                controls.querySelector(".prev")?.removeEventListener("click", prevSlide);
+                controls.querySelector(".next")?.removeEventListener("click", nextSlide);
+                photosContainer.removeEventListener("mouseenter", pauseSliding);
+                photosContainer.removeEventListener("mouseleave", resumeSliding);
+            }
+            window.removeEventListener("beforeunload", stopSliding);
+        };
+        
     } catch (error) {
-        console.error("Failed to set up auto-sliding gallery:", error);
+        // console.error("Failed to set up auto-sliding gallery:", error);
     }
 }
 }

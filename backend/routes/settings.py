@@ -37,6 +37,11 @@ async def update_settings(settings: SettingsUpdate):
     """Update application settings"""
     logger.debug(f"Updating settings: {settings}")
     
+    # Validate that auto_slide_gallery is a boolean
+    if not isinstance(settings.auto_slide_gallery, bool):
+        logger.warning(f"Invalid settings data type: auto_slide_gallery must be boolean, got {type(settings.auto_slide_gallery)}")
+        raise HTTPException(status_code=400, detail="auto_slide_gallery must be a boolean value")
+    
     db = await get_db()
     try:
         await db.execute(
