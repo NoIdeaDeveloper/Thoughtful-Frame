@@ -109,24 +109,36 @@ async def create_entry(data: EntryCreate):
     now = datetime.now(timezone.utc).isoformat()
     db = await get_db()
     try:
-        async with db:
-            cursor = await db.execute(
-                "INSERT INTO journal_entries (title, body, created_at, updated_at) VALUES (?, ?, ?, ?)",
-                (data.title, data.body, now, now),
+        # Start transaction
+        cursor = await db.execute(
+            "INSERT INTO journal_entries (title, body, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            (data.title, data.body, now, now),
+        )
+        entry_id = cursor.lastrowid
+
+        # Insert all assets
+        for position, asset_id in enumerate(data.immich_asset_ids):
+            await db.execute(
+                "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
+                (entry_id, asset_id, position),
             )
-            entry_id = cursor.lastrowid
 
-            for position, asset_id in enumerate(data.immich_asset_ids):
-                await db.execute(
-                    "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
-                    (entry_id, asset_id, position),
-                )
+        # Commit transaction
+        await db.commit()
 
+        # Fetch and return the created entry
         cursor = await db.execute(
             "SELECT * FROM journal_entries WHERE id = ?", (entry_id,)
         )
         entry = await cursor.fetchone()
         return await _build_entry_response(db, entry)
+
+    except Exception as e:
+        # Rollback on error
+        await db.rollback()
+        logger.error(f"Failed to create entry: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create entry: {str(e)}")
+
     finally:
         await db.close()
 
