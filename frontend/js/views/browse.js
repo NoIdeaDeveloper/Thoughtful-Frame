@@ -108,9 +108,13 @@ export async function renderBrowse(container) {
         console.log("Asset data received:", data);
         console.log(`Current page: ${currentPage}, Page size: ${pageSize}, Items: ${extractAssets(data).length}`);
         
-        if (hasMorePages(data, currentPage, pageSize)) {
+        const showLoadMore = hasMorePages(data, currentPage, pageSize);
+        console.log(`Show Load More button: ${showLoadMore}`);
+        
+        if (showLoadMore) {
             loadMoreEl.classList.remove("hidden");
         } else {
+            loadMoreEl.classList.add("hidden");
             console.log("No more pages detected");
         }
 
@@ -250,25 +254,19 @@ function hasMorePages(data, currentPage, pageSize) {
         return data.assets.total > currentPage * pageSize;
     }
     
-    // Fallback: if we got a full page, assume there might be more
-    // But don't show "Load More" if we're on page 1 with few items
+    // Simplified fallback logic: show "Load More" if we got any items
+    // This is more user-friendly than trying to guess if there are more pages
     const items = extractAssets(data);
     if (items.length === 0) return false;
     
-    // If we got exactly pageSize items and we're not on a high page number,
-    // assume there are more pages
+    // If we got exactly pageSize items, definitely show "Load More"
     if (items.length === pageSize) {
         return true;
     }
     
-    // If we got fewer than pageSize, check if it's likely the last page
-    // Don't show "Load More" if we're on page 1-3 with fewer items
-    if (currentPage <= 3 && items.length < pageSize) {
-        return false;
-    }
-    
-    // Otherwise, assume there might be more
-    return true;
+    // If we got some items but less than pageSize, still show "Load More"
+    // The user can decide if they want to try loading more
+    return items.length > 0;
 }
 
 function skeletonGrid(count) {
