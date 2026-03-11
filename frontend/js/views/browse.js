@@ -11,11 +11,20 @@ const urlParams = new URLSearchParams(window.location.search);
 const entryIdParam = urlParams.get('entry');
 const modeParam = urlParams.get('mode');
 
+// Check sessionStorage for entry ID if not in URL (for add images workflow)
+let entryIdForAdding = entryIdParam;
+if (!entryIdForAdding && modeParam === 'add') {
+    entryIdForAdding = sessionStorage.getItem('addImagesToEntry');
+    if (entryIdForAdding) {
+        // console.log(`Adding images to entry ${entryIdForAdding} from sessionStorage`);
+    }
+}
+
 export async function renderBrowse(container) {
     removeSelectionBar();
     multiSelectActive = false;
     selectedAssetIds = [];
-    entryIdForAdding = entryIdParam || null;
+    entryIdForAdding = entryIdForAdding;  // Use the potentially updated value
 
     // Check if we're in "add images to entry" mode
     const isAddMode = modeParam === 'add' && entryIdForAdding;

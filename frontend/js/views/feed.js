@@ -21,7 +21,7 @@ export async function renderFeed(container) {
 
     try {
         const data = await fetchEntries(currentPage, pageSize);
-        console.log("Feed API response:", data); // Debug API response
+        // console.log("Feed API response:", data); // Debug API response
         entriesEl.innerHTML = "";
 
         // Handle various API response formats
@@ -49,11 +49,11 @@ export async function renderFeed(container) {
         }
 
         // Debug: Log actual entry count
-        console.log(`Found ${data.entries.length} journal entries, total: ${data.total || 'unknown'}`);
+        // console.log(`Found ${data.entries.length} journal entries, total: ${data.total || 'unknown'}`);
 
         // Handle single entry case
         if (data.entries.length === 1) {
-            console.log("Rendering single journal entry");
+            // console.log("Rendering single journal entry");
         }
 
         if (data.entries.length === 0) {
@@ -65,7 +65,7 @@ export async function renderFeed(container) {
                 </div>
             `;
             
-            console.log("Empty state rendered for journal feed");
+            // console.log("Empty state rendered for journal feed");
             document.title = "Journal Empty - Thoughtful Frame";
             
             return;
@@ -75,7 +75,7 @@ export async function renderFeed(container) {
             try {
                 const card = renderEntryCard(entry);
                 entriesEl.appendChild(card);
-                console.log(`Rendered entry ${entry.id}`);
+                // console.log(`Rendered entry ${entry.id}`);
             } catch (renderError) {
                 console.error(`Failed to render entry ${entry.id}:`, renderError);
                 // Skip this entry but continue with others
@@ -83,7 +83,7 @@ export async function renderFeed(container) {
             }
         }
         
-        console.log(`Successfully rendered ${entriesEl.children.length} entry cards`);
+        // console.log(`Successfully rendered ${entriesEl.children.length} entry cards`);
 
         if (data.total > currentPage * pageSize) {
             loadMoreEl.classList.remove("hidden");

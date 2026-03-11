@@ -90,9 +90,11 @@ export function showEntryModal(assetIds, existingEntry = null) {
         
         if (addImagesBtn) {
             addImagesBtn.addEventListener("click", () => {
+                // Store the entry ID in sessionStorage to maintain context
+                sessionStorage.setItem('addImagesToEntry', existingEntry.id);
                 closeModal();
                 // Redirect to browse view with multi-select enabled
-                window.location.hash = `#/browse?entry=${existingEntry.id}&mode=add`;
+                window.location.hash = `#/browse?mode=add`;
             });
         }
         

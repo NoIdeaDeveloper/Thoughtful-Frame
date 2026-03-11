@@ -26,7 +26,7 @@ export function renderEntryCard(entry) {
     const safeTitle = entry.title || "";
     const safeCreatedAt = entry.created_at || new Date().toISOString();
     
-    console.log(`Rendering entry ${entry.id}: title="${safeTitle}", body="${safeBody.substring(0, 50)}...", assets=${entry.immich_asset_ids.length}`);
+    // console.log(`Rendering entry ${entry.id}: title="${safeTitle}", body="${safeBody.substring(0, 50)}...", assets=${entry.immich_asset_ids.length}`);
 
     if (isMulti) {
         // Multi-photo: scrollable row on top, text below
