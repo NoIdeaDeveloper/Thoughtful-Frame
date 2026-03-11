@@ -1,7 +1,20 @@
 import { fetchEntries } from "../api.js";
 import { renderEntryCard } from "../components/entryCard.js";
 
+/**
+ * Renders the journal feed with all entries
+ * 
+ * @param {HTMLElement} container - The DOM container to render the feed into
+ * 
+ * @description
+ * Fetches journal entries from the API and renders them in a scrollable feed.
+ * Implements pagination with a "Load more" button for performance.
+ * Handles various error states and edge cases (empty feed, API errors, etc.).
+ * 
+ * @returns {Promise<void>} Resolves when rendering is complete
+ */
 export async function renderFeed(container) {
+    // Set up the feed container with skeleton loading state
     container.innerHTML = `
         <div class="feed-container">
             <h2 class="feed-header">My Journal</h2>
@@ -117,6 +130,16 @@ export async function renderFeed(container) {
     }
 }
 
+/**
+ * Generates skeleton loading cards for the feed
+ * 
+ * @param {number} count - Number of skeleton cards to generate
+ * @returns {string} HTML string containing skeleton loading cards
+ * 
+ * @description
+ * Creates placeholder skeleton cards that are shown while content is loading.
+ * Provides a better user experience by showing visual feedback during async operations.
+ */
 function skeletonCards(count) {
     return Array.from({ length: count })
         .map(

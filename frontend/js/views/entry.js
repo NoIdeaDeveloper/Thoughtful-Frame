@@ -2,11 +2,19 @@ import { fetchEntry, deleteEntry, originalUrl, thumbnailUrl } from "../api.js";
 import { formatDate, escapeHtml } from "../utils.js";
 import { showEntryModal } from "../components/modal.js";
 
-// Auto-sliding gallery function (defined before use)
+/**
+ * Sets up an auto-sliding gallery for multi-photo entries
+ * 
+ * @param {HTMLElement} photosContainer - The container element holding the photos
+ * @param {boolean} autoSlide - Whether to automatically start sliding (default: true)
+ * 
+ * @description
+ * Creates a gallery with navigation controls that automatically slides through images.
+ * Includes pause/play functionality, previous/next navigation, and hover-to-pause behavior.
+ * Gracefully degrades if errors occur during setup.
+ */
 function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
-    // Set up auto-sliding gallery for multi-photo entries
     try {
-        // Configuration
         const slideInterval = 5000; // 5 seconds between slides
         const slideDistance = 300; // pixels to slide
         const pauseOnHover = true;
@@ -163,7 +171,21 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
     }
 }
 
+/**
+ * Renders a journal entry detail view
+ * 
+ * @param {HTMLElement} container - The DOM container to render the entry into
+ * @param {string} entryId - The ID of the journal entry to fetch and render
+ * 
+ * @description
+ * Fetches a journal entry from the API and renders it with photos, title, body, and action buttons.
+ * Handles both single and multi-photo entries with appropriate layouts.
+ * Includes error handling for failed API requests and image loading issues.
+ * 
+ * @returns {Promise<void>} Resolves when rendering is complete
+ */
 export async function renderEntry(container, entryId) {
+    // Show loading skeleton while fetching data
     container.innerHTML = `
         <div class="entry-detail">
             <div class="skeleton" style="height: 300px; margin-bottom: 24px; border-radius: 8px;"></div>
@@ -294,6 +316,16 @@ export async function renderEntry(container, entryId) {
     }
 }
 
+/**
+ * Displays a full-size image in a lightbox overlay
+ * 
+ * @param {string} src - The URL of the image to display
+ * 
+ * @description
+ * Creates a modal lightbox that shows a full-size version of an image.
+ * The lightbox can be dismissed by clicking anywhere on it or pressing the Escape key.
+ * Automatically removes event listeners after use to prevent memory leaks.
+ */
 function showLightbox(src) {
     const lightbox = document.createElement("div");
     lightbox.className = "lightbox";
@@ -312,6 +344,16 @@ function showLightbox(src) {
     document.body.appendChild(lightbox);
 }
 
+/**
+ * Shows a confirmation dialog for deleting a journal entry
+ * 
+ * @param {string} entryId - The ID of the entry to delete
+ * 
+ * @description
+ * Displays a modal dialog asking the user to confirm deletion of a journal entry.
+ * If confirmed, calls the API to delete the entry and redirects to the journal feed.
+ * Shows error messages if the deletion fails.
+ */
 function showDeleteConfirm(entryId) {
     const overlay = document.getElementById("modal-overlay");
     const container = document.getElementById("modal-container");
@@ -350,6 +392,16 @@ function showDeleteConfirm(entryId) {
     });
 }
 
+/**
+ * Shows a modal for adding images to an existing journal entry
+ * 
+ * @param {string} entryId - The ID of the entry to add images to
+ * 
+ * @description
+ * Displays a modal dialog that redirects to the browse view with multi-select enabled.
+ * Allows users to select multiple photos to add to an existing journal entry.
+ * The entry ID is passed via URL parameters to maintain context during the selection process.
+ */
 function showAddImagesModal(entryId) {
     const overlay = document.getElementById("modal-overlay");
     const container = document.getElementById("modal-container");
@@ -378,6 +430,18 @@ function showAddImagesModal(entryId) {
     });
 }
 
+/**
+ * Shows a modal for removing images from a journal entry
+ * 
+ * @param {string} entryId - The ID of the entry to remove images from
+ * @param {Array<string>} currentAssetIds - Array of asset IDs currently in the entry
+ * 
+ * @description
+ * Displays a modal dialog with checkboxes for each image in the entry.
+ * Allows users to select multiple images for removal and confirms the action.
+ * On successful removal, refreshes the entry view and shows a success message.
+ * Handles errors and validates that at least one image is selected.
+ */
 export function showRemoveImagesModal(entryId, currentAssetIds) {
     const overlay = document.getElementById("modal-overlay");
     const container = document.getElementById("modal-container");
@@ -446,6 +510,18 @@ export function showRemoveImagesModal(entryId, currentAssetIds) {
     });
 
 
+/**
+ * Sets up an auto-sliding gallery for multi-photo entries (duplicate function - should be removed)
+ * 
+ * @param {HTMLElement} photosContainer - The container element holding the photos
+ * @param {boolean} autoSlide - Whether to automatically start sliding (default: true)
+ * 
+ * @description
+ * NOTE: This is a duplicate function that should be removed. The primary implementation
+ * is defined earlier in this file. This duplicate exists due to a copy-paste error.
+ * 
+ * @deprecated This function is a duplicate and should be removed
+ */
 function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
     // Set up auto-sliding gallery for multi-photo entries
     try {

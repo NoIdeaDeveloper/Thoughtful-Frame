@@ -2,6 +2,9 @@ import { fetchAssets, checkAssetsWithEntries } from "../api.js";
 import { renderPhotoGrid } from "../components/photoGrid.js";
 import { showEntryModal } from "../components/modal.js";
 
+/**
+ * Global state variables for the browse view
+ */
 let multiSelectActive = false;
 let selectedAssetIds = [];
 let entryIdForAdding = null;  // Track entry ID when adding images
@@ -16,10 +19,23 @@ entryIdForAdding = entryIdParam;
 if (!entryIdForAdding && modeParam === 'add') {
     entryIdForAdding = sessionStorage.getItem('addImagesToEntry');
     if (entryIdForAdding) {
-
+        // Entry ID loaded from sessionStorage for add images workflow
     }
 }
 
+/**
+ * Renders the photo browsing interface
+ * 
+ * @param {HTMLElement} container - The DOM container to render the browse view into
+ * 
+ * @description
+ * Displays a grid of photos from the connected Immich server.
+ * Supports multi-select mode for creating journal entries with multiple photos.
+ * Handles the "add images to entry" workflow when entryId is provided in URL.
+ * Implements infinite scrolling with load-more functionality.
+ * 
+ * @returns {Promise<void>} Resolves when rendering is complete
+ */
 export async function renderBrowse(container) {
     removeSelectionBar();
     multiSelectActive = false;
@@ -169,6 +185,16 @@ export async function renderBrowse(container) {
     }
 }
 
+/**
+ * Attaches click event handlers to photo grid items
+ * 
+ * @param {HTMLElement} gridEl - The photo grid container element
+ * 
+ * @description
+ * Adds click handlers to each photo in the grid. In multi-select mode, toggles selection.
+ * In single-select mode, opens the entry creation modal for the clicked photo.
+ * Prevents duplicate event listeners by using a data attribute flag.
+ */
 function attachGridClickHandlers(gridEl) {
     gridEl.querySelectorAll(".photo-grid-item").forEach((item) => {
         // Only attach once
@@ -197,6 +223,14 @@ function attachGridClickHandlers(gridEl) {
     });
 }
 
+/**
+ * Updates the selection bar with current selection count and actions
+ * 
+ * @description
+ * Shows a bottom bar with the number of selected photos and action buttons.
+ * Automatically creates the bar if it doesn't exist, or removes it if no photos are selected.
+ * Provides "Clear" and "Write Entry" buttons for managing the selection.
+ */
 function updateSelectionBar() {
     let bar = document.querySelector(".selection-bar");
 
@@ -235,11 +269,27 @@ function updateSelectionBar() {
     });
 }
 
+/**
+ * Removes the selection bar from the DOM
+ * 
+ * @description
+ * Simple utility to clean up the selection bar when no longer needed.
+ */
 function removeSelectionBar() {
     const bar = document.querySelector(".selection-bar");
     if (bar) bar.remove();
 }
 
+/**
+ * Extracts asset array from Immich API response
+ * 
+ * @param {Object} data - The API response data
+ * @returns {Array} Array of asset objects
+ * 
+ * @description
+ * Handles different response formats from the Immich API to reliably extract the assets array.
+ * Returns an empty array if no assets are found or the data structure is unexpected.
+ */
 function extractAssets(data) {
     // Immich search/metadata response structure
     if (data.assets && data.assets.items) {
@@ -251,6 +301,18 @@ function extractAssets(data) {
     return [];
 }
 
+/**
+ * Determines if there are more pages of assets to load
+ * 
+ * @param {Object} data - The API response data
+ * @param {number} currentPage - Current page number
+ * @param {number} pageSize - Number of items per page
+ * @returns {boolean} True if there are likely more pages to load
+ * 
+ * @description
+ * Uses the total count from Immich API if available, otherwise uses heuristic logic.
+ * Helps determine whether to show the "Load More" button in the UI.
+ */
 function hasMorePages(data, currentPage, pageSize) {
     // Check if we have total count from Immich API
     if (data.assets && data.assets.total) {
@@ -272,6 +334,15 @@ function hasMorePages(data, currentPage, pageSize) {
     return items.length > 0;
 }
 
+/**
+ * Generates skeleton loading grid items
+ * 
+ * @param {number} count - Number of skeleton items to generate
+ * @returns {string} HTML string containing skeleton grid items
+ * 
+ * @description
+ * Creates placeholder skeleton items for the photo grid during loading states.
+ */
 function skeletonGrid(count) {
     return Array.from({ length: count })
         .map(() => `<div class="skeleton skeleton-grid-item"></div>`)
