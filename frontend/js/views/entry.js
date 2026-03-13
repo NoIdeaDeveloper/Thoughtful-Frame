@@ -1,6 +1,6 @@
-import { fetchEntry, deleteEntry, originalUrl, thumbnailUrl } from "../api.js";
+import { fetchEntry, deleteEntry, originalUrl, thumbnailUrl, removeAssetsFromEntry } from "../api.js";
 import { formatDate, escapeHtml } from "../utils.js";
-import { showEntryModal } from "../components/modal.js";
+import { showEntryModal, closeModal } from "../components/modal.js";
 
 /**
  * Sets up an auto-sliding gallery for multi-photo entries
@@ -16,7 +16,6 @@ import { showEntryModal } from "../components/modal.js";
 function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
     try {
         const slideInterval = 5000; // 5 seconds between slides
-        const slideDistance = 300; // pixels to slide
         const pauseOnHover = true;
         
         let slideIntervalId = null;
@@ -59,58 +58,66 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
         }
         photosContainer.appendChild(imagesWrapper);
         
+        function getSlideWidth() {
+            const firstImg = imagesWrapper.querySelector("img");
+            return firstImg ? firstImg.offsetWidth : photosContainer.clientWidth;
+        }
+
         // Control functions
         function startSliding() {
             if (slideIntervalId || isPaused) return;
-            
+
             slideIntervalId = setInterval(() => {
                 if (isPaused) return;
-                
+
+                const slideWidth = getSlideWidth();
                 const maxScroll = imagesWrapper.scrollWidth - photosContainer.clientWidth;
-                currentPosition += slideDistance;
-                
+                currentPosition += slideWidth;
+
                 if (currentPosition >= maxScroll) {
                     currentPosition = 0; // Loop back to start
                 }
-                
+
                 imagesWrapper.style.transform = `translateX(-${currentPosition}px)`;
             }, slideInterval);
         }
-        
+
         function stopSliding() {
             if (slideIntervalId) {
                 clearInterval(slideIntervalId);
                 slideIntervalId = null;
             }
         }
-        
+
         function pauseSliding() {
             isPaused = true;
         }
-        
+
         function resumeSliding() {
             isPaused = false;
             if (!slideIntervalId) {
                 startSliding();
             }
         }
-        
+
         function slideTo(position) {
             currentPosition = position;
             imagesWrapper.style.transform = `translateX(-${currentPosition}px)`;
         }
-        
+
         function nextSlide() {
+            const slideWidth = getSlideWidth();
             const maxScroll = imagesWrapper.scrollWidth - photosContainer.clientWidth;
-            currentPosition += slideDistance;
+            currentPosition += slideWidth;
             if (currentPosition >= maxScroll) {
                 currentPosition = 0;
             }
             imagesWrapper.style.transform = `translateX(-${currentPosition}px)`;
         }
-        
+
         function prevSlide() {
-            currentPosition -= slideDistance;
+            const slideWidth = getSlideWidth();
+            currentPosition -= slideWidth;
             if (currentPosition < 0) {
                 currentPosition = imagesWrapper.scrollWidth - photosContainer.clientWidth;
             }
@@ -167,7 +174,7 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
         };
         
     } catch (error) {
-        // Error is silently caught to allow graceful degradation
+        console.error("Gallery setup failed:", error);
     }
 }
 
@@ -369,10 +376,7 @@ function showDeleteConfirm(entryId) {
 
     overlay.classList.remove("hidden");
 
-    document.getElementById("delete-cancel").addEventListener("click", () => {
-        overlay.classList.add("hidden");
-        container.innerHTML = "";
-    });
+    document.getElementById("delete-cancel").addEventListener("click", closeModal);
 
     document.getElementById("delete-confirm").addEventListener("click", async () => {
         const btn = document.getElementById("delete-confirm");
@@ -381,8 +385,7 @@ function showDeleteConfirm(entryId) {
 
         try {
             await deleteEntry(entryId);
-            overlay.classList.add("hidden");
-            container.innerHTML = "";
+            closeModal();
             window.location.hash = "#/";
         } catch (err) {
             btn.disabled = false;
@@ -430,10 +433,7 @@ export function showRemoveImagesModal(entryId, currentAssetIds) {
 
     overlay.classList.remove("hidden");
 
-    document.getElementById("remove-images-cancel").addEventListener("click", () => {
-        overlay.classList.add("hidden");
-        container.innerHTML = "";
-    });
+    document.getElementById("remove-images-cancel").addEventListener("click", closeModal);
 
     document.getElementById("remove-images-confirm").addEventListener("click", async () => {
         const btn = document.getElementById("remove-images-confirm");
@@ -451,18 +451,9 @@ export function showRemoveImagesModal(entryId, currentAssetIds) {
                 return;
             }
 
-            const response = await fetch(`/api/journal/entries/${entryId}/assets`, {
-                method: "DELETE",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ asset_ids: assetIds })
-            });
+            const data = await removeAssetsFromEntry(entryId, assetIds);
+            closeModal();
 
-            if (!response.ok) throw new Error(await response.text());
-
-            const data = await response.json();
-            overlay.classList.add("hidden");
-            container.innerHTML = "";
-            
             // Refresh the entry view
             await renderEntry(document.querySelector(".main-container"), entryId);
             alert(`Successfully removed ${data.removed} image(s)!`);

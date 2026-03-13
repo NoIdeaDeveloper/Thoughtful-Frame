@@ -77,6 +77,26 @@ export async function checkAssetsWithEntries(assetIds) {
     return new Set(data.asset_ids_with_entries);
 }
 
+export async function addAssetsToEntry(entryId, assetIds) {
+    const res = await fetch(`${API_BASE}/journal/entries/${entryId}/assets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ immich_asset_ids: assetIds }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+}
+
+export async function removeAssetsFromEntry(entryId, assetIds) {
+    const res = await fetch(`${API_BASE}/journal/entries/${entryId}/assets`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ asset_ids: assetIds }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+}
+
 export async function getSettings() {
     const res = await fetch(`${API_BASE}/settings`);
     if (!res.ok) throw new Error(await res.text());

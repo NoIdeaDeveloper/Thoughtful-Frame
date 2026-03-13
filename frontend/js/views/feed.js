@@ -54,15 +54,10 @@ export async function renderFeed(container) {
             console.error("Invalid API response structure:", data);
             entriesEl.innerHTML = `
                 <div class="error-state">
-                    <p>Received unexpected data format.</p>
-                    <p>Response: ${JSON.stringify(data)}</p>
+                    <p>Received unexpected data format from server.</p>
                 </div>
             `;
             return;
-        }
-
-        // Handle single entry case
-        if (data.entries.length === 1) {
         }
 
         if (data.entries.length === 0) {

@@ -15,6 +15,21 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+async def _get_current_asset_ids(db, entry_id: int) -> list[str]:
+    cursor = await db.execute(
+        "SELECT immich_asset_id FROM entry_assets WHERE entry_id = ?", (entry_id,)
+    )
+    return [row["immich_asset_id"] for row in await cursor.fetchall()]
+
+
+async def _get_next_position(db, entry_id: int) -> int:
+    cursor = await db.execute(
+        "SELECT MAX(position) FROM entry_assets WHERE entry_id = ?", (entry_id,)
+    )
+    row = await cursor.fetchone()
+    return row[0] + 1 if row and row[0] is not None else 0
+
+
 async def _build_entry_response(db, entry_row) -> EntryResponse:
     cursor = await db.execute(
         "SELECT immich_asset_id FROM entry_assets WHERE entry_id = ? ORDER BY position",
@@ -133,6 +148,8 @@ async def create_entry(data: EntryCreate):
         entry = await cursor.fetchone()
         return await _build_entry_response(db, entry)
 
+    except HTTPException:
+        raise
     except Exception as e:
         # Rollback on error
         await db.rollback()
@@ -168,17 +185,11 @@ async def update_entry(entry_id: int, data: EntryUpdate):
                 raise HTTPException(
                     status_code=400, detail="At least one asset ID is required"
                 )
-            
-            # Get current assets for this entry
-            current_assets_cursor = await db.execute(
-                "SELECT immich_asset_id FROM entry_assets WHERE entry_id = ?", (entry_id,)
-            )
-            current_assets = [row["immich_asset_id"] for row in await current_assets_cursor.fetchall()]
-            
-            # Determine operation based on request
-            # If all new assets are different from current ones, replace all (original behavior)
+
+            current_assets = await _get_current_asset_ids(db, entry_id)
+
+            # If all new assets are different from current ones, replace all
             if all(asset_id not in current_assets for asset_id in data.immich_asset_ids):
-                # Replace all assets (original behavior)
                 await db.execute(
                     "DELETE FROM entry_assets WHERE entry_id = ?", (entry_id,)
                 )
@@ -188,25 +199,18 @@ async def update_entry(entry_id: int, data: EntryUpdate):
                         (entry_id, asset_id, position),
                     )
             else:
-                # Add/remove assets selectively
                 # Remove assets not in the new list
-                assets_to_remove = [asset_id for asset_id in current_assets if asset_id not in data.immich_asset_ids]
-                for asset_id in assets_to_remove:
-                    await db.execute(
-                        "DELETE FROM entry_assets WHERE entry_id = ? AND immich_asset_id = ?",
-                        (entry_id, asset_id)
-                    )
-                
+                for asset_id in current_assets:
+                    if asset_id not in data.immich_asset_ids:
+                        await db.execute(
+                            "DELETE FROM entry_assets WHERE entry_id = ? AND immich_asset_id = ?",
+                            (entry_id, asset_id),
+                        )
+
                 # Add new assets not already present
-                assets_to_add = [asset_id for asset_id in data.immich_asset_ids if asset_id not in current_assets]
+                assets_to_add = [a for a in data.immich_asset_ids if a not in current_assets]
                 if assets_to_add:
-                    # Get max position for new assets
-                    max_pos_cursor = await db.execute(
-                        "SELECT MAX(position) FROM entry_assets WHERE entry_id = ?", (entry_id,)
-                    )
-                    max_pos_row = await max_pos_cursor.fetchone()
-                    start_pos = max_pos_row[0] + 1 if max_pos_row and max_pos_row[0] is not None else 0
-                    
+                    start_pos = await _get_next_position(db, entry_id)
                     for position, asset_id in enumerate(assets_to_add, start=start_pos):
                         await db.execute(
                             "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
@@ -222,6 +226,8 @@ async def update_entry(entry_id: int, data: EntryUpdate):
         entry = await cursor.fetchone()
         return await _build_entry_response(db, entry)
 
+    except HTTPException:
+        raise
     except Exception as e:
         # Rollback on error
         await db.rollback()
@@ -254,26 +260,13 @@ async def add_assets_to_entry(entry_id: int, data: EntryUpdate):
         if not await cursor.fetchone():
             raise HTTPException(status_code=404, detail="Entry not found")
         
-        # Get current assets
-        current_assets_cursor = await db.execute(
-            "SELECT immich_asset_id FROM entry_assets WHERE entry_id = ?", (entry_id,)
-        )
-        current_assets = [row["immich_asset_id"] for row in await current_assets_cursor.fetchall()]
-        
-        # Filter out duplicates
-        new_assets = [asset_id for asset_id in data.immich_asset_ids if asset_id not in current_assets]
-        
+        current_assets = await _get_current_asset_ids(db, entry_id)
+        new_assets = [a for a in data.immich_asset_ids if a not in current_assets]
+
         if not new_assets:
             return {"message": "All specified assets already exist in this entry", "added": []}
-        
-        # Get max position
-        max_pos_cursor = await db.execute(
-            "SELECT MAX(position) FROM entry_assets WHERE entry_id = ?", (entry_id,)
-        )
-        max_pos_row = await max_pos_cursor.fetchone()
-        start_pos = max_pos_row[0] + 1 if max_pos_row and max_pos_row[0] is not None else 0
-        
-        # Add new assets
+
+        start_pos = await _get_next_position(db, entry_id)
         for position, asset_id in enumerate(new_assets, start=start_pos):
             await db.execute(
                 "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
@@ -283,6 +276,8 @@ async def add_assets_to_entry(entry_id: int, data: EntryUpdate):
         await db.commit()
         return {"message": f"Successfully added {len(new_assets)} assets", "added": new_assets}
         
+    except HTTPException:
+        raise
     except Exception as e:
         await db.rollback()
         logger.error(f"Failed to add assets to entry: {e}", exc_info=True)
@@ -331,6 +326,8 @@ async def remove_assets_from_entry(entry_id: int, request: AssetIdsRequest):
         
         return {"message": f"Successfully removed {removed_count} assets", "removed": removed_count}
         
+    except HTTPException:
+        raise
     except Exception as e:
         await db.rollback()
         logger.error(f"Failed to remove assets from entry: {e}", exc_info=True)

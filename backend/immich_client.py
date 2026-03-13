@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Optional
 import httpx
 from backend.config import IMMICH_BASE_URL, IMMICH_API_KEY
 
@@ -29,7 +30,7 @@ def _get_client() -> httpx.AsyncClient:
     return _client
 
 
-async def get_assets(page: int = 1, page_size: int = None) -> dict:
+async def get_assets(page: int = 1, page_size: Optional[int] = None) -> dict:
     # Use configured page size if not specified
     actual_page_size = page_size if page_size is not None else IMMICH_PAGE_SIZE
     logger.debug(f"Fetching assets from Immich - page: {page}, page_size: {actual_page_size}")

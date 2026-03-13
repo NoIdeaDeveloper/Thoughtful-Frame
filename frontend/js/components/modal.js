@@ -5,6 +5,10 @@ import { showRemoveImagesModal } from "../views/entry.js";
 const overlay = document.getElementById("modal-overlay");
 const container = document.getElementById("modal-container");
 
+// Module-level handles so closeModal can clean them up
+let _overlayClickHandler = null;
+let _escHandler = null;
+
 /**
  * Escape HTML attributes to prevent XSS in attribute contexts
  * @param {string} str - The string to escape
@@ -36,7 +40,7 @@ export function showEntryModal(assetIds, existingEntry = null) {
             <input type="text" id="modal-entry-title" placeholder="Give this memory a title..."
                    value="${isEdit ? escapeAttr(existingEntry.title) : ""}">
         </div>
-        
+
         ${isEdit ? `
         <div class="modal-field">
             <label>Manage Images</label>
@@ -46,7 +50,7 @@ export function showEntryModal(assetIds, existingEntry = null) {
             </div>
         </div>
         ` : ''}
-        
+
         <div class="modal-field">
             <label for="modal-entry-body">Your thoughts</label>
             <textarea id="modal-entry-body" placeholder="Write about this moment...">${isEdit ? escapeHtml(existingEntry.body) : ""}</textarea>
@@ -71,24 +75,30 @@ export function showEntryModal(assetIds, existingEntry = null) {
 
     // Cancel
     document.getElementById("modal-cancel").addEventListener("click", closeModal);
-    overlay.addEventListener("click", (e) => {
-        if (e.target === overlay) closeModal();
-    }, { once: true });
 
-    // Escape key
-    const escHandler = (e) => {
-        if (e.key === "Escape") {
-            closeModal();
-            document.removeEventListener("keydown", escHandler);
-        }
+    // Overlay click — remove previous handler first to prevent accumulation
+    if (_overlayClickHandler) {
+        overlay.removeEventListener("click", _overlayClickHandler);
+    }
+    _overlayClickHandler = (e) => {
+        if (e.target === overlay) closeModal();
     };
-    document.addEventListener("keydown", escHandler);
+    overlay.addEventListener("click", _overlayClickHandler);
+
+    // Escape key — remove previous handler first
+    if (_escHandler) {
+        document.removeEventListener("keydown", _escHandler);
+    }
+    _escHandler = (e) => {
+        if (e.key === "Escape") closeModal();
+    };
+    document.addEventListener("keydown", _escHandler);
 
     // Add/Remove image buttons (only for edit mode)
     if (isEdit) {
         const addImagesBtn = document.getElementById("modal-add-images");
         const removeImagesBtn = document.getElementById("modal-remove-images");
-        
+
         if (addImagesBtn) {
             addImagesBtn.addEventListener("click", () => {
                 // Store the entry ID in sessionStorage to maintain context
@@ -98,7 +108,7 @@ export function showEntryModal(assetIds, existingEntry = null) {
                 window.location.hash = `#/browse?entry=${existingEntry.id}&mode=add`;
             });
         }
-        
+
         if (removeImagesBtn) {
             removeImagesBtn.addEventListener("click", () => {
                 closeModal();
@@ -150,4 +160,13 @@ export function showEntryModal(assetIds, existingEntry = null) {
 export function closeModal() {
     overlay.classList.add("hidden");
     container.innerHTML = "";
+
+    if (_overlayClickHandler) {
+        overlay.removeEventListener("click", _overlayClickHandler);
+        _overlayClickHandler = null;
+    }
+    if (_escHandler) {
+        document.removeEventListener("keydown", _escHandler);
+        _escHandler = null;
+    }
 }

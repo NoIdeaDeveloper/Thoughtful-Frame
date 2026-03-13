@@ -1,4 +1,4 @@
-import { fetchAssets, checkAssetsWithEntries } from "../api.js";
+import { fetchAssets, checkAssetsWithEntries, addAssetsToEntry } from "../api.js";
 import { renderPhotoGrid } from "../components/photoGrid.js";
 import { showEntryModal } from "../components/modal.js";
 
@@ -7,40 +7,25 @@ import { showEntryModal } from "../components/modal.js";
  */
 let multiSelectActive = false;
 let selectedAssetIds = [];
-let entryIdForAdding = null;  // Track entry ID when adding images
-
-// Get URL parameters
-const urlParams = new URLSearchParams(window.location.search);
-const entryIdParam = urlParams.get('entry');
-const modeParam = urlParams.get('mode');
-
-// Check sessionStorage for entry ID if not in URL (for add images workflow)
-entryIdForAdding = entryIdParam;
-if (!entryIdForAdding && modeParam === 'add') {
-    entryIdForAdding = sessionStorage.getItem('addImagesToEntry');
-    if (entryIdForAdding) {
-        // Entry ID loaded from sessionStorage for add images workflow
-    }
-}
 
 /**
  * Renders the photo browsing interface
- * 
+ *
  * @param {HTMLElement} container - The DOM container to render the browse view into
- * 
- * @description
- * Displays a grid of photos from the connected Immich server.
- * Supports multi-select mode for creating journal entries with multiple photos.
- * Handles the "add images to entry" workflow when entryId is provided in URL.
- * Implements infinite scrolling with load-more functionality.
- * 
  * @returns {Promise<void>} Resolves when rendering is complete
  */
 export async function renderBrowse(container) {
     removeSelectionBar();
     multiSelectActive = false;
     selectedAssetIds = [];
-    entryIdForAdding = entryIdForAdding;  // Use the potentially updated value
+
+    // Parse URL params each render so values are always current
+    const urlParams = new URLSearchParams(window.location.search);
+    const modeParam = urlParams.get('mode');
+    let entryIdForAdding = urlParams.get('entry');
+    if (!entryIdForAdding && modeParam === 'add') {
+        entryIdForAdding = sessionStorage.getItem('addImagesToEntry');
+    }
 
     // Check if we're in "add images to entry" mode
     const isAddMode = modeParam === 'add' && entryIdForAdding;
@@ -94,24 +79,14 @@ export async function renderBrowse(container) {
             }
 
             try {
-                const response = await fetch(`/api/journal/entries/${entryIdForAdding}/assets`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ immich_asset_ids: selectedAssetIds })
-                });
-
-                if (!response.ok) throw new Error(await response.text());
-
-                const data = await response.json();
+                const data = await addAssetsToEntry(entryIdForAdding, selectedAssetIds);
                 alert(`Successfully added ${data.added.length} images to the entry!`);
-                
-                // Clear selection and return to entry view
+
                 selectedAssetIds = [];
                 gridEl.querySelectorAll(".photo-grid-item.selected").forEach((el) => {
                     el.classList.remove("selected");
                 });
-                
-                // Navigate back to the entry
+
                 window.location.hash = `#/entry/${entryIdForAdding}`;
             } catch (err) {
                 alert("Failed to add images to entry: " + err.message);
@@ -121,7 +96,7 @@ export async function renderBrowse(container) {
 
     try {
         const data = await fetchAssets(currentPage, pageSize);
-        
+
         const assets = extractAssets(data);
         allLoadedAssets = assets;
 
@@ -131,18 +106,13 @@ export async function renderBrowse(container) {
         gridEl.innerHTML = "";
         gridEl.appendChild(renderPhotoGrid(assets, assetsWithEntries));
 
-        const showLoadMore = hasMorePages(data, currentPage, pageSize);
-        
-        // Show Load More button if there are more pages
-        if (showLoadMore) {
+        if (hasMorePages(data, currentPage, pageSize)) {
             loadMoreEl.classList.remove("hidden");
-        } else {
-            loadMoreEl.classList.add("hidden");
         }
 
         attachGridClickHandlers(gridEl);
 
-        // Load more
+        // Load more — button is freshly created each renderBrowse, so one listener is safe
         loadMoreEl.querySelector("button").addEventListener("click", async () => {
             currentPage++;
             const btn = loadMoreEl.querySelector("button");
@@ -163,10 +133,7 @@ export async function renderBrowse(container) {
                 btn.textContent = "Load more";
                 btn.disabled = false;
 
-                const hasMore = hasMorePages(moreData, currentPage, pageSize);
-                
-                // Hide Load More button if there are no more pages
-                if (!hasMore) {
+                if (!hasMorePages(moreData, currentPage, pageSize)) {
                     loadMoreEl.classList.add("hidden");
                 }
             } catch (err) {
@@ -187,13 +154,6 @@ export async function renderBrowse(container) {
 
 /**
  * Attaches click event handlers to photo grid items
- * 
- * @param {HTMLElement} gridEl - The photo grid container element
- * 
- * @description
- * Adds click handlers to each photo in the grid. In multi-select mode, toggles selection.
- * In single-select mode, opens the entry creation modal for the clicked photo.
- * Prevents duplicate event listeners by using a data attribute flag.
  */
 function attachGridClickHandlers(gridEl) {
     gridEl.querySelectorAll(".photo-grid-item").forEach((item) => {
@@ -205,7 +165,6 @@ function attachGridClickHandlers(gridEl) {
             const assetId = item.dataset.assetId;
 
             if (multiSelectActive) {
-                // Toggle selection
                 const idx = selectedAssetIds.indexOf(assetId);
                 if (idx >= 0) {
                     selectedAssetIds.splice(idx, 1);
@@ -216,7 +175,6 @@ function attachGridClickHandlers(gridEl) {
                 }
                 updateSelectionBar();
             } else {
-                // Single photo entry
                 showEntryModal([assetId]);
             }
         });
@@ -225,11 +183,6 @@ function attachGridClickHandlers(gridEl) {
 
 /**
  * Updates the selection bar with current selection count and actions
- * 
- * @description
- * Shows a bottom bar with the number of selected photos and action buttons.
- * Automatically creates the bar if it doesn't exist, or removes it if no photos are selected.
- * Provides "Clear" and "Write Entry" buttons for managing the selection.
  */
 function updateSelectionBar() {
     let bar = document.querySelector(".selection-bar");
@@ -271,9 +224,6 @@ function updateSelectionBar() {
 
 /**
  * Removes the selection bar from the DOM
- * 
- * @description
- * Simple utility to clean up the selection bar when no longer needed.
  */
 function removeSelectionBar() {
     const bar = document.querySelector(".selection-bar");
@@ -282,16 +232,8 @@ function removeSelectionBar() {
 
 /**
  * Extracts asset array from Immich API response
- * 
- * @param {Object} data - The API response data
- * @returns {Array} Array of asset objects
- * 
- * @description
- * Handles different response formats from the Immich API to reliably extract the assets array.
- * Returns an empty array if no assets are found or the data structure is unexpected.
  */
 function extractAssets(data) {
-    // Immich search/metadata response structure
     if (data.assets && data.assets.items) {
         return data.assets.items;
     }
@@ -303,45 +245,18 @@ function extractAssets(data) {
 
 /**
  * Determines if there are more pages of assets to load
- * 
- * @param {Object} data - The API response data
- * @param {number} currentPage - Current page number
- * @param {number} pageSize - Number of items per page
- * @returns {boolean} True if there are likely more pages to load
- * 
- * @description
- * Uses the total count from Immich API if available, otherwise uses heuristic logic.
- * Helps determine whether to show the "Load More" button in the UI.
  */
 function hasMorePages(data, currentPage, pageSize) {
-    // Check if we have total count from Immich API
     if (data.assets && data.assets.total) {
         return data.assets.total > currentPage * pageSize;
     }
-    
-    // Simplified fallback logic: show "Load More" if we got any items
-    // This is more user-friendly than trying to guess if there are more pages
     const items = extractAssets(data);
-    if (items.length === 0) return false;
-    
-    // If we got exactly pageSize items, definitely show "Load More"
-    if (items.length === pageSize) {
-        return true;
-    }
-    
-    // If we got some items but less than pageSize, still show "Load More"
-    // The user can decide if they want to try loading more
-    return items.length > 0;
+    // If we got a full page, there may be more; if partial, we've reached the end
+    return items.length === pageSize;
 }
 
 /**
  * Generates skeleton loading grid items
- * 
- * @param {number} count - Number of skeleton items to generate
- * @returns {string} HTML string containing skeleton grid items
- * 
- * @description
- * Creates placeholder skeleton items for the photo grid during loading states.
  */
 function skeletonGrid(count) {
     return Array.from({ length: count })
