@@ -91,6 +91,7 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
 
         function pauseSliding() {
             isPaused = true;
+            stopSliding();
         }
 
         function resumeSliding() {
