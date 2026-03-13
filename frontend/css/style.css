@@ -665,7 +665,7 @@ body {
 }
 
 .stats-title {
-    color: var(--text-primary);
+    color: var(--text);
     margin-bottom: 30px;
     text-align: center;
     font-size: 1.8rem;
@@ -679,7 +679,7 @@ body {
 }
 
 .stat-card {
-    background: var(--surface-secondary);
+    background: var(--card-bg);
     border-radius: 12px;
     padding: 20px;
     text-align: center;
@@ -706,7 +706,7 @@ body {
 }
 
 .stats-charts {
-    background: var(--surface-secondary);
+    background: var(--card-bg);
     border-radius: 12px;
     padding: 20px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -717,7 +717,7 @@ body {
 }
 
 .chart-container h3 {
-    color: var(--text-primary);
+    color: var(--text);
     margin-bottom: 15px;
     font-size: 1.2rem;
 }

@@ -117,7 +117,7 @@ export async function getSettings() {
 }
 
 export async function fetchJournalStats() {
-    const res = await fetch(`${API_BASE}/journal/stats`);
+    const res = await fetch(`${API_BASE}/stats`);
     if (!res.ok) throw new Error(await res.text());
     return res.json();
 }

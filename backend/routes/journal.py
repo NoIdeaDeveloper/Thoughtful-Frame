@@ -416,6 +416,7 @@ async def export_journal():
         "entries": [
             {
                 "title": e.title,
+                "summary": e.summary,
                 "body": e.body,
                 "created_at": e.created_at,
                 "updated_at": e.updated_at,
@@ -453,6 +454,7 @@ async def import_journal(data: dict):
         for i, entry in enumerate(entries_data):
             try:
                 title = entry.get("title", "")
+                summary = entry.get("summary", "")
                 body = entry.get("body", "")
                 asset_ids = entry.get("immich_asset_ids", [])
                 created_at = entry.get("created_at") or datetime.now(timezone.utc).isoformat()
@@ -463,8 +465,8 @@ async def import_journal(data: dict):
                     continue
 
                 cursor = await db.execute(
-                    "INSERT INTO journal_entries (title, body, created_at, updated_at) VALUES (?, ?, ?, ?)",
-                    (title, body, created_at, updated_at),
+                    "INSERT INTO journal_entries (title, summary, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                    (title, summary, body, created_at, updated_at),
                 )
                 entry_id = cursor.lastrowid
 

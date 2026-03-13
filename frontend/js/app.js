@@ -51,7 +51,8 @@ function route() {
         const isActive =
             (view === "feed" && (hash === "#/" || hash === "#")) ||
             (view === "browse" && hash.startsWith("#/browse")) ||
-            (view === "settings" && hash.startsWith("#/settings"));
+            (view === "settings" && hash.startsWith("#/settings")) ||
+            (view === "stats" && hash.startsWith("#/stats"));
         link.classList.toggle("active", isActive);
     });
 }
