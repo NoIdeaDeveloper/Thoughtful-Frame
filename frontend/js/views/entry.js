@@ -1,4 +1,4 @@
-import { fetchEntry, deleteEntry, previewUrl, thumbnailUrl, removeAssetsFromEntry, fetchImmichConfig } from "../api.js";
+import { fetchEntry, deleteEntry, previewUrl, thumbnailUrl, removeAssetsFromEntry, fetchImmichConfig, getSettings } from "../api.js";
 import { formatDate, escapeHtml } from "../utils.js";
 import { showEntryModal, closeModal } from "../components/modal.js";
 
@@ -305,10 +305,19 @@ export async function renderEntry(container, entryId) {
         if (isMulti) {
             const photosContainer = container.querySelector(".entry-detail-photos.multi");
             if (photosContainer) {
-                // Check if auto-sliding is enabled (default to false for safety)
-                const autoSlideEnabled = localStorage.getItem("autoSlideEnabled");
-                const shouldAutoSlide = autoSlideEnabled === "true"; // Only auto-slide if explicitly enabled
-                setupAutoSlidingGallery(photosContainer, shouldAutoSlide);
+                // Check if auto-sliding is enabled from backend settings (primary source of truth)
+                // Fall back to localStorage, then default to false for safety
+                try {
+                    const settings = await getSettings();
+                    const shouldAutoSlide = settings.auto_slide_gallery ?? false;
+                    setupAutoSlidingGallery(photosContainer, shouldAutoSlide);
+                } catch (error) {
+                    console.warn("Failed to fetch settings, falling back to localStorage:", error);
+                    // Fallback to localStorage if API call fails
+                    const autoSlideEnabled = localStorage.getItem("autoSlideEnabled");
+                    const shouldAutoSlide = autoSlideEnabled === "true"; // Only auto-slide if explicitly enabled
+                    setupAutoSlidingGallery(photosContainer, shouldAutoSlide);
+                }
             }
             
             // Lightbox functionality
