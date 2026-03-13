@@ -268,6 +268,7 @@ export async function renderEntry(container, entryId) {
                 <div class="entry-detail-actions">
                     <button class="btn btn-secondary" id="entry-edit">Edit</button>
                     <button class="btn btn-danger" id="entry-delete">Delete</button>
+                    ${isMulti ? `<button class="btn btn-secondary" id="entry-remove-images">Remove Images</button>` : ""}
                     <a href="#/" class="btn btn-secondary">Back to Journal</a>
                 </div>
             </div>
@@ -306,28 +307,26 @@ export async function renderEntry(container, entryId) {
         if (isMulti) {
             const photosContainer = container.querySelector(".entry-detail-photos.multi");
             if (photosContainer) {
-                // Check if auto-sliding is enabled from backend settings (primary source of truth)
-                // Fall back to localStorage, then default to false for safety
                 try {
                     const settings = await getSettings();
                     const shouldAutoSlide = settings.auto_slide_gallery ?? false;
                     setupAutoSlidingGallery(photosContainer, shouldAutoSlide);
                 } catch (error) {
                     console.warn("Failed to fetch settings, falling back to localStorage:", error);
-                    // Fallback to localStorage if API call fails
                     const autoSlideEnabled = localStorage.getItem("autoSlideEnabled");
-                    const shouldAutoSlide = autoSlideEnabled === "true"; // Only auto-slide if explicitly enabled
+                    const shouldAutoSlide = autoSlideEnabled === "true";
                     setupAutoSlidingGallery(photosContainer, shouldAutoSlide);
                 }
             }
-            
-            // Lightbox functionality
-            container.querySelectorAll(".entry-detail-photos.multi img").forEach((img) => {
-                img.addEventListener("click", () => {
-                    showLightbox(img.src);
-                });
-            });
         }
+
+        // Lightbox — all photos (single and multi)
+        const allPhotos = Array.from(container.querySelectorAll(".entry-detail-photos img"));
+        const photoSrcs = allPhotos.map(img => img.src);
+        allPhotos.forEach((img, index) => {
+            img.style.cursor = "zoom-in";
+            img.addEventListener("click", () => showLightbox(photoSrcs, index));
+        });
 
         // Edit
         document.getElementById("entry-edit").addEventListener("click", () => {
@@ -338,6 +337,14 @@ export async function renderEntry(container, entryId) {
         document.getElementById("entry-delete").addEventListener("click", () => {
             showDeleteConfirm(entry.id);
         });
+
+        // Remove Images (multi-photo only)
+        const removeImagesBtn = document.getElementById("entry-remove-images");
+        if (removeImagesBtn) {
+            removeImagesBtn.addEventListener("click", () => {
+                showRemoveImagesModal(entry.id, entry.immich_asset_ids);
+            });
+        }
     } catch (err) {
         container.innerHTML = `
             <div class="entry-detail">
@@ -361,22 +368,58 @@ export async function renderEntry(container, entryId) {
  * The lightbox can be dismissed by clicking anywhere on it or pressing the Escape key.
  * Automatically removes event listeners after use to prevent memory leaks.
  */
-function showLightbox(src) {
+function showLightbox(srcs, startIndex = 0) {
+    let current = startIndex;
+    const total = srcs.length;
+
     const lightbox = document.createElement("div");
     lightbox.className = "lightbox";
-    lightbox.innerHTML = `<img src="${src}" alt="Full size photo">`;
+    lightbox.innerHTML = `
+        <button class="lightbox-close" aria-label="Close">&times;</button>
+        ${total > 1 ? `
+            <button class="lightbox-nav lightbox-prev" aria-label="Previous">&#8249;</button>
+            <button class="lightbox-nav lightbox-next" aria-label="Next">&#8250;</button>
+            <div class="lightbox-counter"><span id="lb-current">${current + 1}</span> / ${total}</div>
+        ` : ""}
+        <img src="${srcs[current]}" alt="Full size photo">
+    `;
 
-    const clickHandler = () => lightbox.remove();
-    lightbox.addEventListener("click", clickHandler, { once: true });
-
-    const keyHandler = (e) => {
-        if (e.key === "Escape") {
-            lightbox.remove();
-        }
-    };
-    document.addEventListener("keydown", keyHandler, { once: true });
-
+    document.body.style.overflow = "hidden";
     document.body.appendChild(lightbox);
+
+    const img = lightbox.querySelector("img");
+    const counterEl = lightbox.querySelector("#lb-current");
+
+    function goTo(index) {
+        current = (index + total) % total;
+        img.src = srcs[current];
+        if (counterEl) counterEl.textContent = current + 1;
+    }
+
+    function close() {
+        lightbox.remove();
+        document.body.style.overflow = "";
+        document.removeEventListener("keydown", keyHandler);
+    }
+
+    // Close on dark background click only (not the image or controls)
+    lightbox.addEventListener("click", (e) => {
+        if (e.target === lightbox) close();
+    });
+
+    lightbox.querySelector(".lightbox-close").addEventListener("click", close);
+
+    if (total > 1) {
+        lightbox.querySelector(".lightbox-prev").addEventListener("click", () => goTo(current - 1));
+        lightbox.querySelector(".lightbox-next").addEventListener("click", () => goTo(current + 1));
+    }
+
+    function keyHandler(e) {
+        if (e.key === "Escape") close();
+        if (e.key === "ArrowRight" && total > 1) goTo(current + 1);
+        if (e.key === "ArrowLeft" && total > 1) goTo(current - 1);
+    }
+    document.addEventListener("keydown", keyHandler);
 }
 
 /**
@@ -443,12 +486,14 @@ export function showRemoveImagesModal(entryId, currentAssetIds) {
 
     container.innerHTML = `
         <h2 class="modal-title">Remove Images</h2>
-        <p style="margin-bottom: 20px; color: var(--text-muted);">Select which images to remove from this entry.</p>
+        <p style="margin-bottom: 16px; color: var(--text-muted);">Tap images to mark them for removal.</p>
+        <div id="remove-images-error" class="modal-inline-error hidden"></div>
         <div class="modal-asset-list">
             ${currentAssetIds.map(assetId => `
                 <label class="modal-asset-item">
                     <input type="checkbox" value="${assetId}" class="asset-checkbox">
                     <img src="${thumbnailUrl(assetId)}" loading="lazy" alt="Photo">
+                    <span class="asset-remove-overlay">&#10005;</span>
                 </label>
             `).join("")}
         </div>
@@ -464,30 +509,29 @@ export function showRemoveImagesModal(entryId, currentAssetIds) {
 
     document.getElementById("remove-images-confirm").addEventListener("click", async () => {
         const btn = document.getElementById("remove-images-confirm");
+        const errorEl = document.getElementById("remove-images-error");
+        const checkboxes = document.querySelectorAll(".asset-checkbox:checked");
+        const assetIds = Array.from(checkboxes).map(cb => cb.value);
+
+        if (assetIds.length === 0) {
+            errorEl.textContent = "Please select at least one image to remove.";
+            errorEl.classList.remove("hidden");
+            return;
+        }
+
+        errorEl.classList.add("hidden");
         btn.disabled = true;
         btn.textContent = "Removing...";
 
         try {
-            const checkboxes = document.querySelectorAll(".asset-checkbox:checked");
-            const assetIds = Array.from(checkboxes).map(cb => cb.value);
-
-            if (assetIds.length === 0) {
-                alert("Please select at least one image to remove.");
-                btn.disabled = false;
-                btn.textContent = "Remove Selected";
-                return;
-            }
-
-            const data = await removeAssetsFromEntry(entryId, assetIds);
+            await removeAssetsFromEntry(entryId, assetIds);
             closeModal();
-
-            // Refresh the entry view
             await renderEntry(document.getElementById("app-content"), entryId);
-            alert(`Successfully removed ${data.removed} image(s)!`);
         } catch (err) {
             btn.disabled = false;
             btn.textContent = "Remove Selected";
-            alert("Failed to remove images: " + err.message);
+            errorEl.textContent = "Failed to remove images: " + err.message;
+            errorEl.classList.remove("hidden");
         }
     });
 }

@@ -140,6 +140,14 @@ export async function renderBrowse(container) {
         } finally {
             isLoading = false;
         }
+
+        // If sentinel is still in viewport after loading, keep loading
+        if (hasMore && sentinelEl.parentNode) {
+            const rect = sentinelEl.getBoundingClientRect();
+            if (rect.top < window.innerHeight + 200) {
+                loadNextPage();
+            }
+        }
     }
 
     function updateSelectionBar() {
