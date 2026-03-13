@@ -31,6 +31,18 @@ function route() {
         renderEntry(contentEl, parseInt(parts[1], 10));
     } else if (parts[0] === "settings") {
         renderSettings(contentEl);
+    } else if (parts[0] === "stats") {
+        // Import dynamically to avoid loading chart library unnecessarily
+        import("./views/stats.js").then((module) => {
+            module.renderStats(contentEl);
+        }).catch((error) => {
+            console.error("Failed to load stats module:", error);
+            contentEl.innerHTML = `
+                <div class="error-state">
+                    <p>Failed to load statistics page.</p>
+                </div>
+            `;
+        });
     }
 
     // Update active nav link

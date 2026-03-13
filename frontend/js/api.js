@@ -116,6 +116,12 @@ export async function getSettings() {
     return res.json();
 }
 
+export async function fetchJournalStats() {
+    const res = await fetch(`${API_BASE}/journal/stats`);
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+}
+
 export async function updateSettings(settings) {
     const res = await fetch(`${API_BASE}/settings`, {
         method: "PUT",
