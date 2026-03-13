@@ -17,6 +17,7 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS journal_entries (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL DEFAULT '',
+                summary TEXT NOT NULL DEFAULT '',
                 body TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
@@ -50,6 +51,13 @@ async def init_db():
                 value TEXT NOT NULL
             )
         """)
+        # Migrations: add columns to existing databases
+        try:
+            await db.execute("ALTER TABLE journal_entries ADD COLUMN summary TEXT NOT NULL DEFAULT ''")
+            await db.commit()
+        except Exception:
+            pass  # Column already exists
+
         await db.commit()
     finally:
         await db.close()

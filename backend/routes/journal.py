@@ -42,6 +42,7 @@ async def _build_entry_response(db, entry_row) -> EntryResponse:
         id=entry_row["id"],
         immich_asset_ids=[r["immich_asset_id"] for r in asset_rows],
         title=entry_row["title"],
+        summary=entry_row["summary"] if "summary" in entry_row.keys() else "",
         body=entry_row["body"],
         created_at=entry_row["created_at"],
         updated_at=entry_row["updated_at"],
@@ -67,6 +68,7 @@ async def _build_entries_response(db, entry_rows) -> list[EntryResponse]:
             id=r["id"],
             immich_asset_ids=assets_by_entry.get(r["id"], []),
             title=r["title"],
+            summary=r["summary"] if "summary" in r.keys() else "",
             body=r["body"],
             created_at=r["created_at"],
             updated_at=r["updated_at"],
@@ -124,12 +126,13 @@ async def create_entry(data: EntryCreate):
         raise HTTPException(status_code=400, detail="At least one asset ID is required")
 
     now = datetime.now(timezone.utc).isoformat()
+    created_at = data.created_at if data.created_at else now
     db = await get_db()
     try:
         # Start transaction
         cursor = await db.execute(
-            "INSERT INTO journal_entries (title, body, created_at, updated_at) VALUES (?, ?, ?, ?)",
-            (data.title, data.body, now, now),
+            "INSERT INTO journal_entries (title, summary, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+            (data.title, data.summary, data.body, created_at, now),
         )
         entry_id = cursor.lastrowid
 
@@ -175,11 +178,13 @@ async def update_entry(entry_id: int, data: EntryUpdate):
 
         now = datetime.now(timezone.utc).isoformat()
         new_title = data.title if data.title is not None else entry["title"]
+        new_summary = data.summary if data.summary is not None else (entry["summary"] if "summary" in entry.keys() else "")
         new_body = data.body if data.body is not None else entry["body"]
+        new_created_at = data.created_at if data.created_at is not None else entry["created_at"]
 
         await db.execute(
-            "UPDATE journal_entries SET title = ?, body = ?, updated_at = ? WHERE id = ?",
-            (new_title, new_body, now, entry_id),
+            "UPDATE journal_entries SET title = ?, summary = ?, body = ?, created_at = ?, updated_at = ? WHERE id = ?",
+            (new_title, new_summary, new_body, new_created_at, now, entry_id),
         )
 
         if data.immich_asset_ids is not None:

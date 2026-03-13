@@ -21,13 +21,22 @@ export async function renderSettings(container) {
                 </div>
             </div>
             <div class="settings-section">
-                <h2 class="settings-section-title">Gallery Settings</h2>
+                <h2 class="settings-section-title">Journal Settings</h2>
                 <div class="setting-item">
                     <label class="setting-label">
                         <input type="checkbox" id="auto-slide-toggle" class="setting-toggle">
                         <span class="setting-description">
                             <strong>Auto-sliding Gallery</strong>
                             <span class="setting-subtext">Automatically slide through multiple images in journal entries</span>
+                        </span>
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <label class="setting-label">
+                        <input type="checkbox" id="confetti-toggle" class="setting-toggle">
+                        <span class="setting-description">
+                            <strong>Confetti on New Entry</strong>
+                            <span class="setting-subtext">Show a confetti animation when you save a new journal entry</span>
                         </span>
                     </label>
                 </div>
@@ -41,7 +50,7 @@ export async function renderSettings(container) {
                     </span>
                     <a href="/api/journal/export" download class="btn btn-secondary">Export</a>
                 </div>
-                <div class="setting-item" style="margin-top: 12px;">
+                <div class="setting-item">
                     <span class="setting-description">
                         <strong>Import Journal</strong>
                         <span class="setting-subtext">Restore entries from a previously exported JSON file</span>
@@ -61,18 +70,34 @@ export async function renderSettings(container) {
         </div>
     `;
 
+    // Track current settings so toggle handlers can send complete payloads
+    let currentSettings = {
+        auto_slide_gallery: true,
+        theme: localStorage.getItem("theme") || "dark",
+        confetti_enabled: true,
+    };
+
+    function getCurrentPayload() {
+        return {
+            auto_slide_gallery: document.getElementById("auto-slide-toggle").checked,
+            theme: currentSettings.theme,
+            confetti_enabled: document.getElementById("confetti-toggle").checked,
+        };
+    }
+
     try {
         const settings = await getSettings();
+        currentSettings = { ...currentSettings, ...settings };
 
         // Theme toggle
-        const currentTheme = settings.theme || "dark";
-        updateThemeButtons(currentTheme);
+        updateThemeButtons(currentSettings.theme);
 
         async function saveTheme(theme) {
+            currentSettings.theme = theme;
             applyTheme(theme);
             updateThemeButtons(theme);
             try {
-                await updateSettings({ auto_slide_gallery: document.getElementById("auto-slide-toggle").checked, theme });
+                await updateSettings(getCurrentPayload());
             } catch (err) {
                 console.error("Failed to save theme:", err);
             }
@@ -87,36 +112,50 @@ export async function renderSettings(container) {
         document.getElementById("theme-light").addEventListener("click", () => saveTheme("light"));
 
         // Auto-slide toggle
-        const autoSlideEnabled = settings.auto_slide_gallery ?? true;
-        document.getElementById("auto-slide-toggle").checked = autoSlideEnabled;
-
+        document.getElementById("auto-slide-toggle").checked = settings.auto_slide_gallery ?? true;
         document.getElementById("auto-slide-toggle").addEventListener("change", async (e) => {
             const isEnabled = e.target.checked;
             localStorage.setItem("autoSlideEnabled", isEnabled.toString());
             try {
-                await updateSettings({ auto_slide_gallery: isEnabled, theme: settings.theme || "dark" });
+                await updateSettings(getCurrentPayload());
                 showSaved(e.target);
-            } catch (error) {
-                console.error("Failed to update settings:", error);
+            } catch {
                 e.target.checked = !isEnabled;
+            }
+        });
+
+        // Confetti toggle
+        const confettiEnabled = settings.confetti_enabled ?? true;
+        document.getElementById("confetti-toggle").checked = confettiEnabled;
+        localStorage.setItem("confettiEnabled", confettiEnabled.toString());
+
+        document.getElementById("confetti-toggle").addEventListener("change", async (e) => {
+            const isEnabled = e.target.checked;
+            localStorage.setItem("confettiEnabled", isEnabled.toString());
+            try {
+                await updateSettings(getCurrentPayload());
+                showSaved(e.target);
+            } catch {
+                e.target.checked = !isEnabled;
+                localStorage.setItem("confettiEnabled", (!isEnabled).toString());
             }
         });
 
     } catch (error) {
         console.error("Failed to load settings:", error);
 
-        // Fallback: apply theme buttons from localStorage
+        // Fallback from localStorage
         const localTheme = localStorage.getItem("theme") || "dark";
         document.getElementById("theme-dark").classList.toggle("active", localTheme === "dark");
         document.getElementById("theme-light").classList.toggle("active", localTheme === "light");
-
         document.getElementById("theme-dark").addEventListener("click", () => applyTheme("dark"));
         document.getElementById("theme-light").addEventListener("click", () => applyTheme("light"));
 
-        const savedPreference = localStorage.getItem("autoSlideEnabled");
-        if (savedPreference !== null) {
-            document.getElementById("auto-slide-toggle").checked = savedPreference === "true";
-        }
+        const autoSlide = localStorage.getItem("autoSlideEnabled");
+        if (autoSlide !== null) document.getElementById("auto-slide-toggle").checked = autoSlide === "true";
+
+        const confetti = localStorage.getItem("confettiEnabled");
+        document.getElementById("confetti-toggle").checked = confetti !== "false";
     }
 
     // Import handler
@@ -145,7 +184,6 @@ export async function renderSettings(container) {
             statusEl.style.color = "#c0392b";
         }
 
-        // Reset file input so same file can be re-imported
         e.target.value = "";
     });
 }

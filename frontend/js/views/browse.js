@@ -13,8 +13,12 @@ export async function renderBrowse(container) {
     multiSelectActive = false;
     selectedAssetIds = [];
 
-    // Parse URL params each render so values are always current
-    const urlParams = new URLSearchParams(window.location.search);
+    // Parse URL params from the hash (e.g. #/browse?entry=1&mode=add)
+    // window.location.search is empty in hash-based routing
+    const hashQuery = window.location.hash.includes('?')
+        ? window.location.hash.slice(window.location.hash.indexOf('?') + 1)
+        : '';
+    const urlParams = new URLSearchParams(hashQuery);
     const modeParam = urlParams.get('mode');
     let entryIdForAdding = urlParams.get('entry');
     if (!entryIdForAdding && modeParam === 'add') {
@@ -113,7 +117,7 @@ export async function renderBrowse(container) {
                 const assetIds = assets.map((a) => a.id);
                 const assetsWithEntries = await checkAssetsWithEntries(assetIds);
                 gridEl.appendChild(renderPhotoGrid(assets, assetsWithEntries, existingAssetIds));
-                attachGridClickHandlers(gridEl, existingAssetIds);
+                attachGridClickHandlers(gridEl);
             }
 
             hasMore = hasMorePages(data, currentPage, pageSize);
@@ -157,7 +161,7 @@ export async function renderBrowse(container) {
  * Attaches click handlers to grid items that don't already have one.
  * Items in `existingAssetIds` are skipped (already in the entry).
  */
-function attachGridClickHandlers(gridEl, existingAssetIds = new Set()) {
+function attachGridClickHandlers(gridEl) {
     gridEl.querySelectorAll(".photo-grid-item").forEach((item) => {
         if (item.dataset.clickAttached) return;
         item.dataset.clickAttached = "true";

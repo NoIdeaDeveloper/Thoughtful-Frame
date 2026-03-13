@@ -5,19 +5,24 @@ from typing import Optional
 class EntryCreate(BaseModel):
     immich_asset_ids: list[str]
     title: str = ""
+    summary: str = ""
     body: str
+    created_at: Optional[str] = None  # If provided, overrides the auto-generated timestamp
 
 
 class EntryUpdate(BaseModel):
     title: Optional[str] = None
+    summary: Optional[str] = None
     body: Optional[str] = None
     immich_asset_ids: Optional[list[str]] = None
+    created_at: Optional[str] = None  # Allow backdating / changing the publish date
 
 
 class EntryResponse(BaseModel):
     id: int
     immich_asset_ids: list[str]
     title: str
+    summary: str
     body: str
     created_at: str
     updated_at: str
@@ -41,8 +46,10 @@ class AssetIdsWithEntriesResponse(BaseModel):
 class SettingsResponse(BaseModel):
     auto_slide_gallery: bool = True
     theme: str = "dark"
+    confetti_enabled: bool = True
 
 
 class SettingsUpdate(BaseModel):
     auto_slide_gallery: bool
     theme: str = "dark"
+    confetti_enabled: bool = True

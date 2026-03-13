@@ -1,6 +1,7 @@
 import { thumbnailUrl, createEntry, updateEntry } from "../api.js";
 import { escapeHtml } from "../utils.js";
 import { showRemoveImagesModal } from "../views/entry.js";
+import { launchConfetti } from "../confetti.js";
 
 const overlay = document.getElementById("modal-overlay");
 const container = document.getElementById("modal-container");
@@ -9,10 +10,10 @@ const container = document.getElementById("modal-container");
 let _overlayClickHandler = null;
 let _escHandler = null;
 
+const SUMMARY_MAX = 200;
+
 /**
  * Escape HTML attributes to prevent XSS in attribute contexts
- * @param {string} str - The string to escape
- * @returns {string} - The escaped string
  */
 function escapeAttr(str) {
     return str
@@ -22,23 +23,37 @@ function escapeAttr(str) {
         .replace(/>/g, "&gt;");
 }
 
+/** Convert ISO timestamp or date string to YYYY-MM-DD for <input type="date"> */
+function toDateInputValue(isoString) {
+    if (!isoString) return new Date().toISOString().slice(0, 10);
+    return isoString.slice(0, 10);
+}
+
+/** Convert YYYY-MM-DD from date input to ISO string at midnight local time */
+function dateInputToISO(dateStr) {
+    if (!dateStr) return new Date().toISOString();
+    // Parse as local date and emit ISO
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toISOString();
+}
+
 export function showEntryModal(assetIds, existingEntry = null) {
     const isEdit = existingEntry !== null;
+    const todayISO = toDateInputValue(existingEntry?.created_at || null);
 
     container.innerHTML = `
         <h2 class="modal-title">${isEdit ? "Edit Entry" : "New Journal Entry"}</h2>
         <div class="modal-photos">
-            ${assetIds
-                .map(
-                    (id) =>
-                        `<img src="${thumbnailUrl(id)}" alt="Photo">`
-                )
-                .join("")}
+            ${assetIds.map((id) => `<img src="${thumbnailUrl(id)}" alt="Photo">`).join("")}
         </div>
         <div class="modal-field">
             <label for="modal-entry-title">Title (optional)</label>
             <input type="text" id="modal-entry-title" placeholder="Give this memory a title..."
                    value="${isEdit ? escapeAttr(existingEntry.title) : ""}">
+        </div>
+        <div class="modal-field">
+            <label for="modal-entry-date">Date</label>
+            <input type="date" id="modal-entry-date" value="${todayISO}">
         </div>
 
         ${isEdit ? `
@@ -46,11 +61,26 @@ export function showEntryModal(assetIds, existingEntry = null) {
             <label>Manage Images</label>
             <div class="modal-image-actions">
                 <button class="btn btn-secondary" id="modal-add-images">Add Images</button>
-                ${existingEntry.immich_asset_ids.length > 1 ? `<button class="btn btn-secondary" id="modal-remove-images">Remove Images</button>` : ''}
+                ${existingEntry.immich_asset_ids.length > 1 ? `
+                    <button class="btn btn-secondary" id="modal-remove-images">Remove Images</button>
+                    <button class="btn btn-secondary" id="modal-reorder-images">Reorder Images</button>
+                ` : ''}
             </div>
         </div>
         ` : ''}
 
+        <div class="modal-field">
+            <label for="modal-entry-summary">
+                Summary
+                <span class="modal-field-hint">(shown on journal card)</span>
+            </label>
+            <textarea id="modal-entry-summary" class="modal-summary-input"
+                      placeholder="A short summary shown on your journal feed..."
+                      maxlength="${SUMMARY_MAX}">${isEdit ? escapeHtml(existingEntry.summary || "") : ""}</textarea>
+            <div class="summary-char-count">
+                <span id="summary-char-current">${isEdit ? (existingEntry.summary || "").length : 0}</span> / ${SUMMARY_MAX} characters
+            </div>
+        </div>
         <div class="modal-field">
             <label for="modal-entry-body">Your thoughts</label>
             <textarea id="modal-entry-body" placeholder="Write about this moment...">${isEdit ? escapeHtml(existingEntry.body) : ""}</textarea>
@@ -63,7 +93,16 @@ export function showEntryModal(assetIds, existingEntry = null) {
 
     overlay.classList.remove("hidden");
 
-    // Auto-resize textarea
+    // Summary character count
+    const summaryEl = document.getElementById("modal-entry-summary");
+    const charCountEl = document.getElementById("summary-char-current");
+    summaryEl.addEventListener("input", () => {
+        const len = summaryEl.value.length;
+        charCountEl.textContent = len;
+        charCountEl.classList.toggle("at-limit", len >= SUMMARY_MAX);
+    });
+
+    // Auto-resize main textarea
     const textarea = document.getElementById("modal-entry-body");
     textarea.addEventListener("input", () => {
         textarea.style.height = "auto";
@@ -76,35 +115,25 @@ export function showEntryModal(assetIds, existingEntry = null) {
     // Cancel
     document.getElementById("modal-cancel").addEventListener("click", closeModal);
 
-    // Overlay click — remove previous handler first to prevent accumulation
-    if (_overlayClickHandler) {
-        overlay.removeEventListener("click", _overlayClickHandler);
-    }
-    _overlayClickHandler = (e) => {
-        if (e.target === overlay) closeModal();
-    };
+    // Overlay click
+    if (_overlayClickHandler) overlay.removeEventListener("click", _overlayClickHandler);
+    _overlayClickHandler = (e) => { if (e.target === overlay) closeModal(); };
     overlay.addEventListener("click", _overlayClickHandler);
 
-    // Escape key — remove previous handler first
-    if (_escHandler) {
-        document.removeEventListener("keydown", _escHandler);
-    }
-    _escHandler = (e) => {
-        if (e.key === "Escape") closeModal();
-    };
+    // Escape key
+    if (_escHandler) document.removeEventListener("keydown", _escHandler);
+    _escHandler = (e) => { if (e.key === "Escape") closeModal(); };
     document.addEventListener("keydown", _escHandler);
 
-    // Add/Remove image buttons (only for edit mode)
+    // Add/Remove image buttons (edit mode only)
     if (isEdit) {
         const addImagesBtn = document.getElementById("modal-add-images");
         const removeImagesBtn = document.getElementById("modal-remove-images");
 
         if (addImagesBtn) {
             addImagesBtn.addEventListener("click", () => {
-                // Store the entry ID in sessionStorage to maintain context
                 sessionStorage.setItem('addImagesToEntry', existingEntry.id);
                 closeModal();
-                // Redirect to browse view with multi-select enabled and entry ID
                 window.location.hash = `#/browse?entry=${existingEntry.id}&mode=add`;
             });
         }
@@ -112,8 +141,15 @@ export function showEntryModal(assetIds, existingEntry = null) {
         if (removeImagesBtn) {
             removeImagesBtn.addEventListener("click", () => {
                 closeModal();
-                // Show remove images modal
                 showRemoveImagesModal(existingEntry.id, existingEntry.immich_asset_ids);
+            });
+        }
+
+        const reorderImagesBtn = document.getElementById("modal-reorder-images");
+        if (reorderImagesBtn) {
+            reorderImagesBtn.addEventListener("click", () => {
+                closeModal();
+                showReorderImagesModal(existingEntry.id, existingEntry.immich_asset_ids);
             });
         }
     }
@@ -121,7 +157,9 @@ export function showEntryModal(assetIds, existingEntry = null) {
     // Save
     document.getElementById("modal-save").addEventListener("click", async () => {
         const title = document.getElementById("modal-entry-title").value.trim();
+        const summary = document.getElementById("modal-entry-summary").value.trim();
         const body = document.getElementById("modal-entry-body").value.trim();
+        const dateInput = document.getElementById("modal-entry-date").value;
 
         if (!body) {
             document.getElementById("modal-entry-body").focus();
@@ -137,17 +175,27 @@ export function showEntryModal(assetIds, existingEntry = null) {
             if (isEdit) {
                 entry = await updateEntry(existingEntry.id, {
                     title,
+                    summary,
                     body,
                     immich_asset_ids: assetIds,
+                    created_at: dateInput ? dateInputToISO(dateInput) : undefined,
                 });
             } else {
                 entry = await createEntry({
                     immich_asset_ids: assetIds,
                     title,
+                    summary,
                     body,
+                    created_at: dateInput ? dateInputToISO(dateInput) : undefined,
                 });
             }
             closeModal();
+
+            // Confetti on new entries (if enabled in settings)
+            if (!isEdit && localStorage.getItem("confettiEnabled") !== "false") {
+                launchConfetti();
+            }
+
             window.location.hash = `#/entry/${entry.id}`;
         } catch (err) {
             saveBtn.disabled = false;
@@ -198,6 +246,95 @@ export function showEntryPickerModal(assetId, entries) {
     });
 
     document.getElementById("picker-cancel").addEventListener("click", closeModal);
+}
+
+export function showReorderImagesModal(entryId, assetIds) {
+    // Work on a mutable copy
+    let ordered = [...assetIds];
+
+    function buildList() {
+        return ordered.map((id, i) => `
+            <div class="reorder-item" draggable="true" data-id="${id}" data-index="${i}">
+                <span class="reorder-handle" title="Drag to reorder">⠿</span>
+                <img src="${thumbnailUrl(id)}" alt="Photo">
+                <span class="reorder-index">${i + 1}</span>
+            </div>
+        `).join("");
+    }
+
+    function renderList() {
+        document.getElementById("reorder-list").innerHTML = buildList();
+        attachDragHandlers();
+    }
+
+    container.innerHTML = `
+        <h2 class="modal-title">Reorder Images</h2>
+        <p style="margin-bottom: 16px; color: var(--text-muted);">Drag images into the order you want them to appear.</p>
+        <div class="reorder-list" id="reorder-list">${buildList()}</div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="reorder-cancel">Cancel</button>
+            <button class="btn btn-primary" id="reorder-save">Save Order</button>
+        </div>
+    `;
+
+    overlay.classList.remove("hidden");
+
+    if (_overlayClickHandler) overlay.removeEventListener("click", _overlayClickHandler);
+    _overlayClickHandler = (e) => { if (e.target === overlay) closeModal(); };
+    overlay.addEventListener("click", _overlayClickHandler);
+
+    if (_escHandler) document.removeEventListener("keydown", _escHandler);
+    _escHandler = (e) => { if (e.key === "Escape") closeModal(); };
+    document.addEventListener("keydown", _escHandler);
+
+    let dragSrcIndex = null;
+
+    function attachDragHandlers() {
+        document.querySelectorAll(".reorder-item").forEach((item) => {
+            item.addEventListener("dragstart", (e) => {
+                dragSrcIndex = parseInt(item.dataset.index, 10);
+                item.classList.add("dragging");
+                e.dataTransfer.effectAllowed = "move";
+            });
+            item.addEventListener("dragend", () => {
+                item.classList.remove("dragging");
+                document.querySelectorAll(".reorder-item").forEach((el) => el.classList.remove("drag-over"));
+            });
+            item.addEventListener("dragover", (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                document.querySelectorAll(".reorder-item").forEach((el) => el.classList.remove("drag-over"));
+                item.classList.add("drag-over");
+            });
+            item.addEventListener("drop", (e) => {
+                e.preventDefault();
+                const dropIndex = parseInt(item.dataset.index, 10);
+                if (dragSrcIndex === null || dragSrcIndex === dropIndex) return;
+                const [moved] = ordered.splice(dragSrcIndex, 1);
+                ordered.splice(dropIndex, 0, moved);
+                renderList();
+            });
+        });
+    }
+
+    attachDragHandlers();
+
+    document.getElementById("reorder-cancel").addEventListener("click", closeModal);
+
+    document.getElementById("reorder-save").addEventListener("click", async () => {
+        const saveBtn = document.getElementById("reorder-save");
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Saving...";
+        try {
+            await updateEntry(entryId, { immich_asset_ids: ordered });
+            closeModal();
+            window.location.hash = `#/entry/${entryId}`;
+        } catch (err) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = "Save Order";
+            alert("Failed to save order: " + err.message);
+        }
+    });
 }
 
 export function closeModal() {
