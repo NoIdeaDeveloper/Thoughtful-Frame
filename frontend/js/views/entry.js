@@ -305,9 +305,9 @@ export async function renderEntry(container, entryId) {
         if (isMulti) {
             const photosContainer = container.querySelector(".entry-detail-photos.multi");
             if (photosContainer) {
-                // Check if auto-sliding is enabled (default to true)
+                // Check if auto-sliding is enabled (default to false for safety)
                 const autoSlideEnabled = localStorage.getItem("autoSlideEnabled");
-                const shouldAutoSlide = autoSlideEnabled !== "false"; // Default to true
+                const shouldAutoSlide = autoSlideEnabled === "true"; // Only auto-slide if explicitly enabled
                 setupAutoSlidingGallery(photosContainer, shouldAutoSlide);
             }
             
