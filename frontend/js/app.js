@@ -20,7 +20,8 @@ getSettings().then((settings) => {
 
 function route() {
     const hash = window.location.hash || "#/";
-    const parts = hash.slice(2).split("/");
+    const [path, query] = hash.slice(2).split("?", 2);
+    const parts = path.split("/");
 
     if (parts[0] === "" || parts[0] === undefined) {
         renderFeed(contentEl);
