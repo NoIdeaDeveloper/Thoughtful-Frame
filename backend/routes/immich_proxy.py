@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 
 from backend import immich_client
+from backend.config import IMMICH_BASE_URL
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -102,6 +103,16 @@ def _cached_content_type(variant: str) -> str:
         return "image/jpeg"
     # Originals vary; we don't convert them, so we can't guarantee the type
     return "application/octet-stream"
+
+
+@router.get("/assets/config")
+async def get_config():
+    """Return the Immich web URL for deep-linking to assets."""
+    # IMMICH_BASE_URL ends with /api (e.g. http://host:2283/api); strip it for the web URL
+    web_url = IMMICH_BASE_URL.rstrip("/")
+    if web_url.endswith("/api"):
+        web_url = web_url[:-4]
+    return {"immich_web_url": web_url}
 
 
 @router.get("/assets")

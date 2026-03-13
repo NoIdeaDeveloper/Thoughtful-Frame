@@ -2,8 +2,21 @@ import { renderFeed } from "./views/feed.js";
 import { renderBrowse } from "./views/browse.js";
 import { renderEntry } from "./views/entry.js";
 import { renderSettings } from "./views/settings.js";
+import { getSettings } from "./api.js";
 
 const contentEl = document.getElementById("app-content");
+
+// Apply theme immediately from localStorage to avoid flash, then reconcile with API
+export function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("theme", theme);
+}
+
+applyTheme(localStorage.getItem("theme") || "dark");
+
+getSettings().then((settings) => {
+    if (settings.theme) applyTheme(settings.theme);
+}).catch(() => {});
 
 function route() {
     const hash = window.location.hash || "#/";

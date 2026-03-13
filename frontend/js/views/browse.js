@@ -1,6 +1,6 @@
-import { fetchAssets, checkAssetsWithEntries, addAssetsToEntry, fetchEntry } from "../api.js";
+import { fetchAssets, checkAssetsWithEntries, addAssetsToEntry, fetchEntry, fetchEntriesForAsset } from "../api.js";
 import { renderPhotoGrid } from "../components/photoGrid.js";
-import { showEntryModal } from "../components/modal.js";
+import { showEntryModal, showEntryPickerModal } from "../components/modal.js";
 
 let multiSelectActive = false;
 let selectedAssetIds = [];
@@ -165,7 +165,7 @@ function attachGridClickHandlers(gridEl, existingAssetIds = new Set()) {
         // Already-in-entry items are not interactive
         if (item.classList.contains("already-in-entry")) return;
 
-        item.addEventListener("click", () => {
+        item.addEventListener("click", async () => {
             const assetId = item.dataset.assetId;
 
             if (multiSelectActive) {
@@ -179,7 +179,23 @@ function attachGridClickHandlers(gridEl, existingAssetIds = new Set()) {
                 }
                 updateSelectionBar();
             } else {
-                showEntryModal([assetId]);
+                // In add-mode, always open the create modal
+                if (item.closest(".browse-container")?.querySelector("#add-to-entry")) {
+                    showEntryModal([assetId]);
+                    return;
+                }
+                try {
+                    const entries = await fetchEntriesForAsset(assetId);
+                    if (entries.length === 0) {
+                        showEntryModal([assetId]);
+                    } else if (entries.length === 1) {
+                        window.location.hash = `#/entry/${entries[0].id}`;
+                    } else {
+                        showEntryPickerModal(assetId, entries);
+                    }
+                } catch {
+                    showEntryModal([assetId]);
+                }
             }
         });
     });

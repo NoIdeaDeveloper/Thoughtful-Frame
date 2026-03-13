@@ -1,6 +1,8 @@
+import json
 import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from backend.database import get_db
 from backend.models import (
     EntryCreate,
@@ -388,3 +390,92 @@ async def get_assets_with_entries(data: AssetIdsRequest):
         )
     finally:
         await db.close()
+
+
+@router.get("/export")
+async def export_journal():
+    """Export all journal entries as a downloadable JSON file."""
+    db = await get_db()
+    try:
+        cursor = await db.execute("SELECT * FROM journal_entries ORDER BY created_at ASC")
+        entry_rows = await cursor.fetchall()
+        entries = await _build_entries_response(db, entry_rows)
+    finally:
+        await db.close()
+
+    export_data = {
+        "version": "1",
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "entries": [
+            {
+                "title": e.title,
+                "body": e.body,
+                "created_at": e.created_at,
+                "updated_at": e.updated_at,
+                "immich_asset_ids": e.immich_asset_ids,
+            }
+            for e in entries
+        ],
+    }
+
+    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    filename = f"thoughtful-frame-{date_str}.json"
+    content = json.dumps(export_data, indent=2)
+    return StreamingResponse(
+        iter([content]),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/import")
+async def import_journal(data: dict):
+    """Import journal entries from an exported JSON file."""
+    if data.get("version") != "1":
+        raise HTTPException(status_code=400, detail="Unsupported export version")
+
+    entries_data = data.get("entries", [])
+    if not isinstance(entries_data, list):
+        raise HTTPException(status_code=400, detail="Invalid export format")
+
+    imported = 0
+    errors = []
+
+    db = await get_db()
+    try:
+        for i, entry in enumerate(entries_data):
+            try:
+                title = entry.get("title", "")
+                body = entry.get("body", "")
+                asset_ids = entry.get("immich_asset_ids", [])
+                created_at = entry.get("created_at") or datetime.now(timezone.utc).isoformat()
+                updated_at = entry.get("updated_at") or created_at
+
+                if not body or not asset_ids:
+                    errors.append(f"Entry {i}: missing body or asset IDs")
+                    continue
+
+                cursor = await db.execute(
+                    "INSERT INTO journal_entries (title, body, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                    (title, body, created_at, updated_at),
+                )
+                entry_id = cursor.lastrowid
+
+                for position, asset_id in enumerate(asset_ids):
+                    await db.execute(
+                        "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
+                        (entry_id, asset_id, position),
+                    )
+
+                imported += 1
+            except Exception as e:
+                errors.append(f"Entry {i}: {str(e)}")
+
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
+    finally:
+        await db.close()
+
+    return {"imported": imported, "errors": errors}

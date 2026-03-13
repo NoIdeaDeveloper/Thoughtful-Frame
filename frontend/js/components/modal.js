@@ -157,6 +157,49 @@ export function showEntryModal(assetIds, existingEntry = null) {
     });
 }
 
+export function showEntryPickerModal(assetId, entries) {
+    container.innerHTML = `
+        <h2 class="modal-title">Choose an Entry</h2>
+        <p style="margin-bottom: 16px; color: var(--text-muted);">This photo belongs to multiple entries. Where would you like to go?</p>
+        <div class="entry-picker-list">
+            ${entries.map((e) => `
+                <button class="entry-picker-item" data-entry-id="${e.id}">
+                    <span style="flex: 1">${escapeHtml(e.title || "Untitled")}</span>
+                    <span class="picker-date">${e.created_at ? e.created_at.slice(0, 10) : ""}</span>
+                </button>
+            `).join("")}
+            <button class="entry-picker-item new-entry" id="picker-new">+ Create New Entry</button>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="picker-cancel">Cancel</button>
+        </div>
+    `;
+
+    overlay.classList.remove("hidden");
+
+    if (_overlayClickHandler) overlay.removeEventListener("click", _overlayClickHandler);
+    _overlayClickHandler = (e) => { if (e.target === overlay) closeModal(); };
+    overlay.addEventListener("click", _overlayClickHandler);
+
+    if (_escHandler) document.removeEventListener("keydown", _escHandler);
+    _escHandler = (e) => { if (e.key === "Escape") closeModal(); };
+    document.addEventListener("keydown", _escHandler);
+
+    container.querySelectorAll(".entry-picker-item[data-entry-id]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            closeModal();
+            window.location.hash = `#/entry/${btn.dataset.entryId}`;
+        });
+    });
+
+    document.getElementById("picker-new").addEventListener("click", () => {
+        closeModal();
+        showEntryModal([assetId]);
+    });
+
+    document.getElementById("picker-cancel").addEventListener("click", closeModal);
+}
+
 export function closeModal() {
     overlay.classList.add("hidden");
     container.innerHTML = "";

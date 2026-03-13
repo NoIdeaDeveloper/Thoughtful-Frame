@@ -101,6 +101,15 @@ export async function removeAssetsFromEntry(entryId, assetIds) {
     return res.json();
 }
 
+let _immichConfigCache = null;
+export async function fetchImmichConfig() {
+    if (_immichConfigCache) return _immichConfigCache;
+    const res = await fetch(`${API_BASE}/immich/assets/config`);
+    if (!res.ok) throw new Error(await res.text());
+    _immichConfigCache = await res.json();
+    return _immichConfigCache;
+}
+
 export async function getSettings() {
     const res = await fetch(`${API_BASE}/settings`);
     if (!res.ok) throw new Error(await res.text());

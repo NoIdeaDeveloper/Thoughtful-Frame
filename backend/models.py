@@ -40,7 +40,9 @@ class AssetIdsWithEntriesResponse(BaseModel):
 
 class SettingsResponse(BaseModel):
     auto_slide_gallery: bool = True
+    theme: str = "dark"
 
 
 class SettingsUpdate(BaseModel):
     auto_slide_gallery: bool
+    theme: str = "dark"

@@ -1,4 +1,4 @@
-import { fetchEntry, deleteEntry, previewUrl, thumbnailUrl, removeAssetsFromEntry } from "../api.js";
+import { fetchEntry, deleteEntry, previewUrl, thumbnailUrl, removeAssetsFromEntry, fetchImmichConfig } from "../api.js";
 import { formatDate, escapeHtml } from "../utils.js";
 import { showEntryModal, closeModal } from "../components/modal.js";
 
@@ -124,6 +124,18 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
             imagesWrapper.style.transform = `translateX(-${currentPosition}px)`;
         }
         
+        // Trackpad / mouse-wheel scroll
+        let wheelThrottle = false;
+        function onWheel(e) {
+            const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+            if (delta === 0 || wheelThrottle) return;
+            e.preventDefault();
+            wheelThrottle = true;
+            if (delta > 0) nextSlide(); else prevSlide();
+            setTimeout(() => { wheelThrottle = false; }, 100);
+        }
+        photosContainer.addEventListener("wheel", onWheel, { passive: false });
+
         // Event listeners for controls
         controls.querySelector(".pause").addEventListener("click", () => {
             pauseSliding();
@@ -170,6 +182,7 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
                 photosContainer.removeEventListener("mouseenter", pauseSliding);
                 photosContainer.removeEventListener("mouseleave", resumeSliding);
             }
+            photosContainer.removeEventListener("wheel", onWheel);
             window.removeEventListener("beforeunload", stopSliding);
         };
         
@@ -211,25 +224,30 @@ export async function renderEntry(container, entryId) {
             existingGallery._cleanupGallery();
         }
         
-        const entry = await fetchEntry(entryId);
+        const [entry, immichConfig] = await Promise.all([
+            fetchEntry(entryId),
+            fetchImmichConfig().catch(() => null),
+        ]);
         const isMulti = entry.immich_asset_ids.length > 1;
+
+        function photoWrapper(id, lazy = true) {
+            const link = immichConfig
+                ? `<a class="immich-link" href="${immichConfig.immich_web_url}/photos/${id}" target="_blank" rel="noopener" title="View in Immich">&#x2197;</a>`
+                : "";
+            return `<div class="entry-photo-wrapper"><img src="${previewUrl(id)}"${lazy ? ' loading="lazy"' : ""} alt="Photo" data-asset-id="${id}">${link}</div>`;
+        }
 
         let photosHtml;
         if (isMulti) {
             photosHtml = `
                 <div class="entry-detail-photos multi">
-                    ${entry.immich_asset_ids
-                        .map(
-                            (id) =>
-                                `<img src="${previewUrl(id)}" loading="lazy" alt="Photo" data-asset-id="${id}">`
-                        )
-                        .join("")}
+                    ${entry.immich_asset_ids.map((id) => photoWrapper(id)).join("")}
                 </div>
             `;
         } else {
             photosHtml = `
                 <div class="entry-detail-photos single">
-                    <img src="${previewUrl(entry.immich_asset_ids[0])}" alt="Photo" data-asset-id="${entry.immich_asset_ids[0]}">
+                    ${photoWrapper(entry.immich_asset_ids[0], false)}
                 </div>
             `;
         }
