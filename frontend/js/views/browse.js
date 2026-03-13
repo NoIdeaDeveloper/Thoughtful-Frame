@@ -183,9 +183,17 @@ function attachGridClickHandlers(gridEl) {
                 }
                 updateSelectionBar();
             } else {
-                // In add-mode, always open the create modal
+                // In add-mode, activate multi-select and select the image
                 if (item.closest(".browse-container")?.querySelector("#add-to-entry")) {
-                    showEntryModal([assetId]);
+                    // Activate multi-select mode
+                    multiSelectActive = true;
+                    toggleBtn.textContent = "Cancel Selection";
+                    gridEl.classList.add("multi-select-active");
+                    
+                    // Select the clicked image
+                    selectedAssetIds = [assetId];
+                    item.classList.add("selected");
+                    updateSelectionBar();
                     return;
                 }
                 try {
