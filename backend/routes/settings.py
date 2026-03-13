@@ -68,3 +68,32 @@ async def update_settings(settings: SettingsUpdate):
         raise HTTPException(status_code=500, detail="Failed to update settings")
     finally:
         await db.close()
+
+
+@router.get("/stats", response_model=dict)
+async def get_journal_stats():
+    """Get journal statistics by month"""
+    db = await get_db()
+    try:
+        # Query entries grouped by month
+        cursor = await db.execute("""
+            SELECT 
+                strftime('%Y-%m', created_at) as month,
+                COUNT(*) as count
+            FROM journal_entries
+            GROUP BY strftime('%Y-%m', created_at)
+            ORDER BY created_at DESC
+        """)
+        
+        rows = await cursor.fetchall()
+        
+        # Format response
+        stats = {
+            "by_month": [{"month": row[0], "count": row[1]} for row in rows],
+            "total_entries": sum(row[1] for row in rows)
+        }
+        
+        return stats
+        
+    finally:
+        await db.close()
