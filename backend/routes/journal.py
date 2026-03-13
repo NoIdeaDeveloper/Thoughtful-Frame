@@ -286,11 +286,11 @@ async def add_assets_to_entry(entry_id: int, data: EntryUpdate):
         await db.close()
 
 
-@router.delete("/entries/{entry_id}/assets")
+@router.post("/entries/{entry_id}/assets/remove")
 async def remove_assets_from_entry(entry_id: int, request: AssetIdsRequest):
     """
     Remove specific assets from an entry.
-    
+
     Request body should contain:
     {
         "asset_ids": ["asset_id_1", "asset_id_2"]

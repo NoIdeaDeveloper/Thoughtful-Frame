@@ -68,6 +68,14 @@ async def get_asset_thumbnail(asset_id: str) -> tuple[bytes, str]:
     return response.content, content_type
 
 
+async def get_asset_preview(asset_id: str) -> tuple[bytes, str]:
+    client = _get_client()
+    response = await client.get(f"/assets/{asset_id}/thumbnail", params={"size": "preview"})
+    response.raise_for_status()
+    content_type = response.headers.get("content-type", "image/jpeg")
+    return response.content, content_type
+
+
 async def get_asset_original(asset_id: str) -> tuple[bytes, str]:
     client = _get_client()
     response = await client.get(f"/assets/{asset_id}/original")

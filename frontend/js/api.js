@@ -20,6 +20,10 @@ export function originalUrl(assetId) {
     return `${API_BASE}/immich/assets/${assetId}/original`;
 }
 
+export function previewUrl(assetId) {
+    return `${API_BASE}/immich/assets/${assetId}/preview`;
+}
+
 export async function fetchEntries(page = 1, pageSize = 20) {
     const res = await fetch(`${API_BASE}/journal/entries?page=${page}&page_size=${pageSize}`);
     if (!res.ok) throw new Error(await res.text());
@@ -88,8 +92,8 @@ export async function addAssetsToEntry(entryId, assetIds) {
 }
 
 export async function removeAssetsFromEntry(entryId, assetIds) {
-    const res = await fetch(`${API_BASE}/journal/entries/${entryId}/assets`, {
-        method: "DELETE",
+    const res = await fetch(`${API_BASE}/journal/entries/${entryId}/assets/remove`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ asset_ids: assetIds }),
     });

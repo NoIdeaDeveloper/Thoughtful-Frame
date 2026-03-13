@@ -1,18 +1,12 @@
-import { fetchAssets, checkAssetsWithEntries, addAssetsToEntry } from "../api.js";
+import { fetchAssets, checkAssetsWithEntries, addAssetsToEntry, fetchEntry } from "../api.js";
 import { renderPhotoGrid } from "../components/photoGrid.js";
 import { showEntryModal } from "../components/modal.js";
 
-/**
- * Global state variables for the browse view
- */
 let multiSelectActive = false;
 let selectedAssetIds = [];
 
 /**
- * Renders the photo browsing interface
- *
- * @param {HTMLElement} container - The DOM container to render the browse view into
- * @returns {Promise<void>} Resolves when rendering is complete
+ * Renders the photo browsing interface with infinite scroll.
  */
 export async function renderBrowse(container) {
     removeSelectionBar();
@@ -27,8 +21,18 @@ export async function renderBrowse(container) {
         entryIdForAdding = sessionStorage.getItem('addImagesToEntry');
     }
 
-    // Check if we're in "add images to entry" mode
     const isAddMode = modeParam === 'add' && entryIdForAdding;
+
+    // In add-mode, fetch the entry's existing asset IDs so we can mark them
+    let existingAssetIds = new Set();
+    if (isAddMode) {
+        try {
+            const entry = await fetchEntry(entryIdForAdding);
+            existingAssetIds = new Set(entry.immich_asset_ids);
+        } catch (err) {
+            console.error("Failed to fetch entry for add-mode:", err);
+        }
+    }
 
     container.innerHTML = `
         <div class="browse-container">
@@ -40,20 +44,19 @@ export async function renderBrowse(container) {
             <div class="photo-grid" id="photo-grid">
                 ${skeletonGrid(12)}
             </div>
-            <div class="load-more-container hidden" id="browse-load-more">
-                <button class="btn btn-secondary">Load more</button>
-            </div>
+            <div id="scroll-sentinel" class="scroll-sentinel"></div>
         </div>
     `;
 
     const gridEl = document.getElementById("photo-grid");
-    const loadMoreEl = document.getElementById("browse-load-more");
+    const sentinelEl = document.getElementById("scroll-sentinel");
     const toggleBtn = document.getElementById("toggle-select");
     const addToEntryBtn = document.getElementById("add-to-entry");
 
     let currentPage = 1;
     const pageSize = 100;
-    let allLoadedAssets = [];
+    let isLoading = false;
+    let hasMore = true;
 
     // Toggle multi-select mode
     toggleBtn.addEventListener("click", () => {
@@ -94,72 +97,73 @@ export async function renderBrowse(container) {
         });
     }
 
-    try {
-        const data = await fetchAssets(currentPage, pageSize);
+    async function loadNextPage() {
+        if (isLoading || !hasMore) return;
+        isLoading = true;
 
-        const assets = extractAssets(data);
-        allLoadedAssets = assets;
+        try {
+            const data = await fetchAssets(currentPage, pageSize);
+            const assets = extractAssets(data);
 
-        const assetIds = assets.map((a) => a.id);
-        const assetsWithEntries = await checkAssetsWithEntries(assetIds);
+            if (currentPage === 1) {
+                gridEl.innerHTML = "";
+            }
 
-        gridEl.innerHTML = "";
-        gridEl.appendChild(renderPhotoGrid(assets, assetsWithEntries));
+            if (assets.length > 0) {
+                const assetIds = assets.map((a) => a.id);
+                const assetsWithEntries = await checkAssetsWithEntries(assetIds);
+                gridEl.appendChild(renderPhotoGrid(assets, assetsWithEntries, existingAssetIds));
+                attachGridClickHandlers(gridEl, existingAssetIds);
+            }
 
-        if (hasMorePages(data, currentPage, pageSize)) {
-            loadMoreEl.classList.remove("hidden");
-        }
+            hasMore = hasMorePages(data, currentPage, pageSize);
+            if (!hasMore) {
+                sentinelEl.remove();
+            }
 
-        attachGridClickHandlers(gridEl);
-
-        // Load more — button is freshly created each renderBrowse, so one listener is safe
-        loadMoreEl.querySelector("button").addEventListener("click", async () => {
             currentPage++;
-            const btn = loadMoreEl.querySelector("button");
-            btn.textContent = "Loading...";
-            btn.disabled = true;
-
-            try {
-                const moreData = await fetchAssets(currentPage, pageSize);
-                const moreAssets = extractAssets(moreData);
-                allLoadedAssets = allLoadedAssets.concat(moreAssets);
-
-                const moreIds = moreAssets.map((a) => a.id);
-                const moreWithEntries = await checkAssetsWithEntries(moreIds);
-
-                gridEl.appendChild(renderPhotoGrid(moreAssets, moreWithEntries));
-                attachGridClickHandlers(gridEl);
-
-                btn.textContent = "Load more";
-                btn.disabled = false;
-
-                if (!hasMorePages(moreData, currentPage, pageSize)) {
-                    loadMoreEl.classList.add("hidden");
-                }
-            } catch (err) {
-                btn.textContent = "Load more";
-                btn.disabled = false;
+        } catch (err) {
+            if (currentPage === 1) {
+                gridEl.innerHTML = `
+                    <div class="error-state">
+                        <p>Could not load photos. Is the Immich server running?</p>
+                        <p>${err.message}</p>
+                    </div>
+                `;
+            } else {
                 console.error("Failed to load more assets:", err);
             }
-        });
-    } catch (err) {
-        gridEl.innerHTML = `
-            <div class="error-state">
-                <p>Could not load photos. Is the Immich server running?</p>
-                <p>${err.message}</p>
-            </div>
-        `;
+        } finally {
+            isLoading = false;
+        }
     }
+
+    // Infinite scroll via IntersectionObserver
+    const observer = new IntersectionObserver(
+        (entries) => {
+            if (entries[0].isIntersecting) {
+                loadNextPage();
+            }
+        },
+        { rootMargin: "200px" }
+    );
+    observer.observe(sentinelEl);
+
+    // Load first page immediately
+    await loadNextPage();
 }
 
 /**
- * Attaches click event handlers to photo grid items
+ * Attaches click handlers to grid items that don't already have one.
+ * Items in `existingAssetIds` are skipped (already in the entry).
  */
-function attachGridClickHandlers(gridEl) {
+function attachGridClickHandlers(gridEl, existingAssetIds = new Set()) {
     gridEl.querySelectorAll(".photo-grid-item").forEach((item) => {
-        // Only attach once
         if (item.dataset.clickAttached) return;
         item.dataset.clickAttached = "true";
+
+        // Already-in-entry items are not interactive
+        if (item.classList.contains("already-in-entry")) return;
 
         item.addEventListener("click", () => {
             const assetId = item.dataset.assetId;
@@ -181,9 +185,6 @@ function attachGridClickHandlers(gridEl) {
     });
 }
 
-/**
- * Updates the selection bar with current selection count and actions
- */
 function updateSelectionBar() {
     let bar = document.querySelector(".selection-bar");
 
@@ -222,17 +223,11 @@ function updateSelectionBar() {
     });
 }
 
-/**
- * Removes the selection bar from the DOM
- */
 function removeSelectionBar() {
     const bar = document.querySelector(".selection-bar");
     if (bar) bar.remove();
 }
 
-/**
- * Extracts asset array from Immich API response
- */
 function extractAssets(data) {
     if (data.assets && data.assets.items) {
         return data.assets.items;
@@ -243,21 +238,14 @@ function extractAssets(data) {
     return [];
 }
 
-/**
- * Determines if there are more pages of assets to load
- */
 function hasMorePages(data, currentPage, pageSize) {
     if (data.assets && data.assets.total) {
         return data.assets.total > currentPage * pageSize;
     }
     const items = extractAssets(data);
-    // If we got a full page, there may be more; if partial, we've reached the end
     return items.length === pageSize;
 }
 
-/**
- * Generates skeleton loading grid items
- */
 function skeletonGrid(count) {
     return Array.from({ length: count })
         .map(() => `<div class="skeleton skeleton-grid-item"></div>`)

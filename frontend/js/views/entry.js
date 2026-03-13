@@ -1,4 +1,4 @@
-import { fetchEntry, deleteEntry, originalUrl, thumbnailUrl, removeAssetsFromEntry } from "../api.js";
+import { fetchEntry, deleteEntry, previewUrl, thumbnailUrl, removeAssetsFromEntry } from "../api.js";
 import { formatDate, escapeHtml } from "../utils.js";
 import { showEntryModal, closeModal } from "../components/modal.js";
 
@@ -221,7 +221,7 @@ export async function renderEntry(container, entryId) {
                     ${entry.immich_asset_ids
                         .map(
                             (id) =>
-                                `<img src="${originalUrl(id)}" loading="lazy" alt="Photo" data-asset-id="${id}">`
+                                `<img src="${previewUrl(id)}" loading="lazy" alt="Photo" data-asset-id="${id}">`
                         )
                         .join("")}
                 </div>
@@ -229,7 +229,7 @@ export async function renderEntry(container, entryId) {
         } else {
             photosHtml = `
                 <div class="entry-detail-photos single">
-                    <img src="${originalUrl(entry.immich_asset_ids[0])}" alt="Photo" data-asset-id="${entry.immich_asset_ids[0]}">
+                    <img src="${previewUrl(entry.immich_asset_ids[0])}" alt="Photo" data-asset-id="${entry.immich_asset_ids[0]}">
                 </div>
             `;
         }
@@ -416,12 +416,11 @@ export function showRemoveImagesModal(entryId, currentAssetIds) {
     container.innerHTML = `
         <h2 class="modal-title">Remove Images</h2>
         <p style="margin-bottom: 20px; color: var(--text-muted);">Select which images to remove from this entry.</p>
-        <div class="modal-asset-list" style="max-height: 300px; overflow-y: auto; margin-bottom: 20px;">
+        <div class="modal-asset-list">
             ${currentAssetIds.map(assetId => `
                 <label class="modal-asset-item">
                     <input type="checkbox" value="${assetId}" class="asset-checkbox">
-                    <img src="${thumbnailUrl(assetId)}" loading="lazy" style="width: 60px; height: 60px; object-fit: cover; margin-right: 10px;">
-                    ${assetId}
+                    <img src="${thumbnailUrl(assetId)}" loading="lazy" alt="Photo">
                 </label>
             `).join("")}
         </div>
@@ -455,7 +454,7 @@ export function showRemoveImagesModal(entryId, currentAssetIds) {
             closeModal();
 
             // Refresh the entry view
-            await renderEntry(document.querySelector(".main-container"), entryId);
+            await renderEntry(document.getElementById("app-content"), entryId);
             alert(`Successfully removed ${data.removed} image(s)!`);
         } catch (err) {
             btn.disabled = false;
