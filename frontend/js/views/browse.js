@@ -232,7 +232,7 @@ function updateSelectionBar() {
         <span class="selection-count">${count} photo${count !== 1 ? "s" : ""} selected</span>
         <div class="selection-actions">
             <button class="btn btn-secondary" id="selection-clear">Clear</button>
-            <button class="btn btn-primary" id="selection-write">Write Entry</button>
+            ${!isAddMode ? '<button class="btn btn-primary" id="selection-write">Write Entry</button>' : ''}
         </div>
     `;
 
