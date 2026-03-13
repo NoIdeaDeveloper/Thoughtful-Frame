@@ -77,12 +77,12 @@ async def get_journal_stats():
     try:
         # Query entries grouped by month
         cursor = await db.execute("""
-            SELECT 
-                strftime('%Y-%m', created_at) as month,
+            SELECT
+                substr(created_at, 1, 7) as month,
                 COUNT(*) as count
             FROM journal_entries
-            GROUP BY strftime('%Y-%m', created_at)
-            ORDER BY created_at DESC
+            GROUP BY substr(created_at, 1, 7)
+            ORDER BY month DESC
         """)
         
         rows = await cursor.fetchall()

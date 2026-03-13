@@ -142,114 +142,110 @@ export async function renderBrowse(container) {
         }
     }
 
-    // Infinite scroll via IntersectionObserver
-    const observer = new IntersectionObserver(
-        (entries) => {
-            if (entries[0].isIntersecting) {
-                loadNextPage();
-            }
-        },
-        { rootMargin: "200px" }
-    );
-    observer.observe(sentinelEl);
+    function updateSelectionBar() {
+        let bar = document.querySelector(".selection-bar");
 
-    // Load first page immediately
-    await loadNextPage();
-}
-
-/**
- * Attaches click handlers to grid items that don't already have one.
- * Items in `existingAssetIds` are skipped (already in the entry).
- */
-function attachGridClickHandlers(gridEl) {
-    gridEl.querySelectorAll(".photo-grid-item").forEach((item) => {
-        if (item.dataset.clickAttached) return;
-        item.dataset.clickAttached = "true";
-
-        // Already-in-entry items are not interactive
-        if (item.classList.contains("already-in-entry")) return;
-
-        item.addEventListener("click", async () => {
-            const assetId = item.dataset.assetId;
-
-            if (multiSelectActive) {
-                const idx = selectedAssetIds.indexOf(assetId);
-                if (idx >= 0) {
-                    selectedAssetIds.splice(idx, 1);
-                    item.classList.remove("selected");
-                } else {
-                    selectedAssetIds.push(assetId);
-                    item.classList.add("selected");
-                }
-                updateSelectionBar();
-            } else {
-                // In add-mode, activate multi-select and select the image
-                if (item.closest(".browse-container")?.querySelector("#add-to-entry")) {
-                    // Activate multi-select mode
-                    multiSelectActive = true;
-                    toggleBtn.textContent = "Cancel Selection";
-                    gridEl.classList.add("multi-select-active");
-                    
-                    // Select the clicked image
-                    selectedAssetIds = [assetId];
-                    item.classList.add("selected");
-                    updateSelectionBar();
-                    return;
-                }
-                try {
-                    const entries = await fetchEntriesForAsset(assetId);
-                    if (entries.length === 0) {
-                        showEntryModal([assetId]);
-                    } else if (entries.length === 1) {
-                        window.location.hash = `#/entry/${entries[0].id}`;
-                    } else {
-                        showEntryPickerModal(assetId, entries);
-                    }
-                } catch {
-                    showEntryModal([assetId]);
-                }
-            }
-        });
-    });
-}
-
-function updateSelectionBar() {
-    let bar = document.querySelector(".selection-bar");
-
-    if (selectedAssetIds.length === 0) {
-        removeSelectionBar();
-        return;
-    }
-
-    if (!bar) {
-        bar = document.createElement("div");
-        bar.className = "selection-bar";
-        document.body.appendChild(bar);
-    }
-
-    const count = selectedAssetIds.length;
-    bar.innerHTML = `
-        <span class="selection-count">${count} photo${count !== 1 ? "s" : ""} selected</span>
-        <div class="selection-actions">
-            <button class="btn btn-secondary" id="selection-clear">Clear</button>
-            ${!isAddMode ? '<button class="btn btn-primary" id="selection-write">Write Entry</button>' : ''}
-        </div>
-    `;
-
-    document.getElementById("selection-clear").addEventListener("click", () => {
-        selectedAssetIds = [];
-        document.querySelectorAll(".photo-grid-item.selected").forEach((el) => {
-            el.classList.remove("selected");
-        });
-        removeSelectionBar();
-    });
-
-    document.getElementById("selection-write").addEventListener("click", () => {
-        if (selectedAssetIds.length > 0) {
-            showEntryModal([...selectedAssetIds]);
+        if (selectedAssetIds.length === 0) {
+            removeSelectionBar();
+            return;
         }
-    });
+
+        if (!bar) {
+            bar = document.createElement("div");
+            bar.className = "selection-bar";
+            document.body.appendChild(bar);
+        }
+
+        const count = selectedAssetIds.length;
+        bar.innerHTML = `
+            <span class="selection-count">${count} photo${count !== 1 ? "s" : ""} selected</span>
+            <div class="selection-actions">
+                <button class="btn btn-secondary" id="selection-clear">Clear</button>
+                ${!isAddMode ? '<button class="btn btn-primary" id="selection-write">Write Entry</button>' : ''}
+            </div>
+        `;
+
+        document.getElementById("selection-clear").addEventListener("click", () => {
+            selectedAssetIds = [];
+            document.querySelectorAll(".photo-grid-item.selected").forEach((el) => {
+                el.classList.remove("selected");
+            });
+            removeSelectionBar();
+        });
+
+        if (!isAddMode) {
+            document.getElementById("selection-write").addEventListener("click", () => {
+                if (selectedAssetIds.length > 0) {
+                    showEntryModal([...selectedAssetIds]);
+                }
+            });
+        }
+    }
+
+    function attachGridClickHandlers(grid) {
+        grid.querySelectorAll(".photo-grid-item").forEach((item) => {
+            if (item.dataset.clickAttached) return;
+            item.dataset.clickAttached = "true";
+
+            if (item.classList.contains("already-in-entry")) return;
+
+            item.addEventListener("click", async () => {
+                const assetId = item.dataset.assetId;
+
+                if (multiSelectActive) {
+                    const idx = selectedAssetIds.indexOf(assetId);
+                    if (idx >= 0) {
+                        selectedAssetIds.splice(idx, 1);
+                        item.classList.remove("selected");
+                    } else {
+                        selectedAssetIds.push(assetId);
+                        item.classList.add("selected");
+                    }
+                    updateSelectionBar();
+                } else {
+                    if (isAddMode) {
+                        multiSelectActive = true;
+                        toggleBtn.textContent = "Cancel Selection";
+                        gridEl.classList.add("multi-select-active");
+                        selectedAssetIds = [assetId];
+                        item.classList.add("selected");
+                        updateSelectionBar();
+                        return;
+                    }
+                    try {
+                        const entries = await fetchEntriesForAsset(assetId);
+                        if (entries.length === 0) {
+                            showEntryModal([assetId]);
+                        } else if (entries.length === 1) {
+                            window.location.hash = `#/entry/${entries[0].id}`;
+                        } else {
+                            showEntryPickerModal(assetId, entries);
+                        }
+                    } catch {
+                        showEntryModal([assetId]);
+                    }
+                }
+            });
+        });
+    }
+
+    // Load first page, then set up observer so it correctly detects
+    // whether the sentinel is still in view after the initial load.
+    await loadNextPage();
+
+    if (sentinelEl.parentNode) {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting) {
+                    loadNextPage();
+                }
+            },
+            { rootMargin: "200px" }
+        );
+        observer.observe(sentinelEl);
+    }
 }
+
 
 function removeSelectionBar() {
     const bar = document.querySelector(".selection-bar");
