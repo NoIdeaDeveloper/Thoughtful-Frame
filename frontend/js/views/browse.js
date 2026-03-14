@@ -104,10 +104,12 @@ export async function renderBrowse(container) {
     let isLoading = false;
     let hasMore = true;
 
+    const returnToEntry = () => { window.location.hash = `#/entry/${entryIdForAdding}`; };
+
     // Toggle multi-select mode
     toggleBtn.addEventListener("click", () => {
         if (isAddMode && !multiSelectActive) {
-            window.location.hash = `#/entry/${entryIdForAdding}`;
+            returnToEntry();
             return;
         }
 
@@ -121,9 +123,7 @@ export async function renderBrowse(container) {
                 el.classList.remove("selected");
             });
             removeSelectionBar();
-            if (isAddMode) {
-                window.location.hash = `#/entry/${entryIdForAdding}`;
-            }
+            if (isAddMode) returnToEntry();
         }
     });
 
