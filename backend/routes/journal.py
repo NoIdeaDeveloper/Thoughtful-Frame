@@ -294,21 +294,21 @@ async def remove_assets_from_entry(entry_id: int, request: AssetIdsRequest):
         if not await cursor.fetchone():
             raise HTTPException(status_code=404, detail="Entry not found")
 
-        # Ensure removal would not leave the entry with zero assets
-        current_assets = await _get_current_asset_ids(db, entry_id)
-        remaining = [a for a in current_assets if a not in asset_ids]
-        if len(remaining) == 0:
+        # Atomically check that removal won't leave zero assets, then delete
+        placeholders = ",".join("?" for _ in asset_ids)
+        cursor = await db.execute(
+            f"SELECT COUNT(*) as cnt FROM entry_assets WHERE entry_id = ? AND immich_asset_id NOT IN ({placeholders})",
+            [entry_id, *asset_ids],
+        )
+        row = await cursor.fetchone()
+        if row["cnt"] == 0:
             raise HTTPException(status_code=400, detail="Cannot remove all assets from an entry")
 
-        # Remove specified assets
-        removed_count = 0
-        for asset_id in asset_ids:
-            cursor = await db.execute(
-                "DELETE FROM entry_assets WHERE entry_id = ? AND immich_asset_id = ?",
-                (entry_id, asset_id)
-            )
-            if cursor.rowcount > 0:
-                removed_count += 1
+        cursor = await db.execute(
+            f"DELETE FROM entry_assets WHERE entry_id = ? AND immich_asset_id IN ({placeholders})",
+            [entry_id, *asset_ids],
+        )
+        removed_count = cursor.rowcount
 
         await db.commit()
         
@@ -469,11 +469,10 @@ async def import_journal(data: dict):
             )
             entry_id = cursor.lastrowid
 
-            if asset_ids:
-                await db.executemany(
-                    "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
-                    [(entry_id, asset_id, position) for position, asset_id in enumerate(asset_ids)]
-                )
+            await db.executemany(
+                "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
+                [(entry_id, asset_id, position) for position, asset_id in enumerate(asset_ids)]
+            )
 
             await db.commit()
             imported += 1

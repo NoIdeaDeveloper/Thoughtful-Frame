@@ -34,5 +34,5 @@ async def login(body: LoginRequest, response: Response):
 async def logout(request: Request, response: Response):
     token = request.cookies.get(SESSION_COOKIE)
     delete_session(token)
-    response.delete_cookie(key=SESSION_COOKIE, path="/")
+    response.delete_cookie(key=SESSION_COOKIE, path="/", samesite="strict", secure=SECURE_COOKIES)
     return {"ok": True}
