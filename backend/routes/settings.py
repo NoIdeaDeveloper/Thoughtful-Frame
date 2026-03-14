@@ -43,17 +43,14 @@ async def update_settings(settings: SettingsUpdate):
 
     db = await get_db()
     try:
-        await db.execute(
+        # Batch insert all settings in a single operation
+        await db.executemany(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-            ("auto_slide_gallery", str(settings.auto_slide_gallery)),
-        )
-        await db.execute(
-            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-            ("theme", settings.theme),
-        )
-        await db.execute(
-            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-            ("confetti_enabled", str(settings.confetti_enabled)),
+            [
+                ("auto_slide_gallery", str(settings.auto_slide_gallery)),
+                ("theme", settings.theme),
+                ("confetti_enabled", str(settings.confetti_enabled))
+            ]
         )
         await db.commit()
 

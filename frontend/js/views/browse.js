@@ -1,9 +1,47 @@
-import { fetchAssets, checkAssetsWithEntries, addAssetsToEntry, fetchEntry, fetchEntriesForAsset } from "../api.js";
+import { fetchAssets, checkAssetsWithEntries, addAssetsToEntry, fetchEntry, fetchEntriesForAsset, getAllLinkedAssetIds } from "../api.js";
 import { renderPhotoGrid } from "../components/photoGrid.js";
 import { showEntryModal, showEntryPickerModal } from "../components/modal.js";
 
 let multiSelectActive = false;
 let selectedAssetIds = [];
+
+// Cache for asset IDs that have journal entries
+let _linkedAssetIds = null;
+let _cachePromise = null;
+
+async function getLinkedAssetIds() {
+    // If we have cached data, return it immediately
+    if (_linkedAssetIds) {
+        return _linkedAssetIds;
+    }
+    
+    // If there's already a fetch in progress, wait for it
+    if (_cachePromise) {
+        return _cachePromise;
+    }
+    
+    // Otherwise, fetch fresh data
+    _cachePromise = (async () => {
+        try {
+            const response = await getAllLinkedAssetIds();
+            _linkedAssetIds = new Set(response.asset_ids || []);
+            return _linkedAssetIds;
+        } catch (err) {
+            console.warn("Failed to fetch linked asset IDs cache, falling back to per-page checks:", err);
+            _linkedAssetIds = new Set();
+            return _linkedAssetIds;
+        } finally {
+            _cachePromise = null;
+        }
+    })();
+    
+    return _cachePromise;
+}
+
+// Function to invalidate cache when new entries are created
+export function invalidateLinkedAssetIdsCache() {
+    _linkedAssetIds = null;
+}
 
 /**
  * Renders the photo browsing interface with infinite scroll.
@@ -115,7 +153,20 @@ export async function renderBrowse(container) {
 
             if (assets.length > 0) {
                 const assetIds = assets.map((a) => a.id);
-                const assetsWithEntries = await checkAssetsWithEntries(assetIds);
+                
+                // Use cached linked asset IDs instead of making API call for each page
+                const linkedAssetIds = await getLinkedAssetIds();
+                let assetsWithEntries;
+                
+                if (linkedAssetIds.size > 0) {
+                    // Use cache if available
+                    assetsWithEntries = new Set(assetIds.filter(id => linkedAssetIds.has(id)));
+                } else {
+                    // Fallback to per-page check if cache failed
+                    console.log("Using fallback per-page check for asset entries");
+                    assetsWithEntries = await checkAssetsWithEntries(assetIds);
+                }
+                
                 gridEl.appendChild(renderPhotoGrid(assets, assetsWithEntries, existingAssetIds));
                 attachGridClickHandlers(gridEl);
             }

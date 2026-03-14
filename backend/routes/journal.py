@@ -138,11 +138,11 @@ async def create_entry(data: EntryCreate):
         )
         entry_id = cursor.lastrowid
 
-        # Insert all assets
-        for position, asset_id in enumerate(data.immich_asset_ids):
-            await db.execute(
+        # Insert all assets using batch operation
+        if data.immich_asset_ids:
+            await db.executemany(
                 "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
-                (entry_id, asset_id, position),
+                [(entry_id, asset_id, position) for position, asset_id in enumerate(data.immich_asset_ids)]
             )
 
         # Commit transaction
@@ -202,10 +202,11 @@ async def update_entry(entry_id: int, data: EntryUpdate):
                 await db.execute(
                     "DELETE FROM entry_assets WHERE entry_id = ?", (entry_id,)
                 )
-                for position, asset_id in enumerate(data.immich_asset_ids):
-                    await db.execute(
+                # Insert all assets using batch operation
+                if data.immich_asset_ids:
+                    await db.executemany(
                         "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
-                        (entry_id, asset_id, position),
+                        [(entry_id, asset_id, position) for position, asset_id in enumerate(data.immich_asset_ids)]
                     )
             else:
                 # Remove assets not in the new list
@@ -220,11 +221,11 @@ async def update_entry(entry_id: int, data: EntryUpdate):
                 assets_to_add = [a for a in data.immich_asset_ids if a not in current_assets]
                 if assets_to_add:
                     start_pos = await _get_next_position(db, entry_id)
-                    for position, asset_id in enumerate(assets_to_add, start=start_pos):
-                        await db.execute(
-                            "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
-                            (entry_id, asset_id, position),
-                        )
+                    # Insert all assets using batch operation
+                    await db.executemany(
+                        "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
+                        [(entry_id, asset_id, position) for position, asset_id in enumerate(assets_to_add, start_pos)]
+                    )
 
         # Commit transaction
         await db.commit()
@@ -399,6 +400,18 @@ async def get_assets_with_entries(data: AssetIdsRequest):
         await db.close()
 
 
+@router.get("/linked-asset-ids")
+async def get_all_linked_asset_ids():
+    """Get all Immich asset IDs that have journal entries (for frontend caching)."""
+    db = await get_db()
+    try:
+        cursor = await db.execute("SELECT DISTINCT immich_asset_id FROM entry_assets")
+        rows = await cursor.fetchall()
+        return {"asset_ids": [r["immich_asset_id"] for r in rows]}
+    finally:
+        await db.close()
+
+
 @router.get("/export")
 async def export_journal():
     """Export all journal entries as a downloadable JSON file."""
@@ -470,10 +483,11 @@ async def import_journal(data: dict):
                 )
                 entry_id = cursor.lastrowid
 
-                for position, asset_id in enumerate(asset_ids):
-                    await db.execute(
+                # Insert all assets using batch operation
+                if asset_ids:
+                    await db.executemany(
                         "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
-                        (entry_id, asset_id, position),
+                        [(entry_id, asset_id, position) for position, asset_id in enumerate(asset_ids)]
                     )
 
                 imported += 1

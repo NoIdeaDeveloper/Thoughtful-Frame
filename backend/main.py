@@ -12,6 +12,22 @@ from backend import immich_client
 from backend.auth import require_auth
 from backend.config import APP_PASSWORD
 
+
+class CachedStaticFiles(StaticFiles):
+    """Custom StaticFiles with long-lived cache headers for better performance."""
+    
+    async def get_response(self, path: str, scope, receive, send):
+        try:
+            response = await super().get_response(path, scope, receive, send)
+            # Extract just the filename part for matching
+            filename = path.split('/')[-1]
+            if filename.endswith(('.js', '.css', '.jpg', '.jpeg', '.png', '.gif', '.svg', '.woff', '.woff2')):
+                response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            return response
+        except Exception as e:
+            logger.error(f"Failed to serve static file {path}: {e}", exc_info=True)
+            raise
+
 # Configure verbose logging
 logging.basicConfig(
     level=logging.DEBUG,
@@ -94,7 +110,7 @@ async def health_check():
 # Mount static files with proper cache control
 app.mount(
     "/static",
-    StaticFiles(directory="frontend", html=True),
+    CachedStaticFiles(directory="frontend", html=True),
     name="static"
 )
 

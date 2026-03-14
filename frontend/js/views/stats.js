@@ -1,6 +1,7 @@
 import { fetchJournalStats } from "../api.js";
 import { renderMonthlyChart } from "../components/charts.js";
 
+// Lazy load Chart.js only when stats view is loaded
 export async function renderStats(container) {
     container.innerHTML = `
         <div class="stats-container">
@@ -33,6 +34,16 @@ export async function renderStats(container) {
         // Update summary cards
         document.getElementById("total-entries").textContent = stats.total_entries;
         document.getElementById("active-months").textContent = stats.by_month.length;
+        
+        // Lazy load Chart.js only when needed
+        try {
+            await import('../vendor/chart.umd.min.js');
+        } catch (error) {
+            console.error("Failed to load Chart.js:", error);
+            // Chart rendering will fail, but we can still show the data
+            document.querySelector('.chart-wrapper').innerHTML = 
+                '<p class="chart-error">Chart visualization unavailable</p>';
+        }
         
         // Render the chart
         renderMonthlyChart("monthly-chart", stats.by_month);

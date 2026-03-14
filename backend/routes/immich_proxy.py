@@ -3,6 +3,7 @@ from fastapi.responses import Response
 import httpx
 import logging
 import time
+import asyncio
 from pathlib import Path
 
 from backend import immich_client
@@ -86,7 +87,14 @@ async def get_cached_image(asset_id: str, variant: str, fetcher) -> tuple[bytes,
         raise HTTPException(status_code=e.response.status_code,
                             detail=f"Immich returned {e.response.status_code}")
 
-    cleanup_cache_if_needed()
+    # Run cache cleanup in background to avoid blocking the event loop
+    def cleanup_cache_wrapper():
+        try:
+            cleanup_cache_if_needed()
+        except Exception as e:
+            logger.error(f"Background cache cleanup failed: {e}", exc_info=True)
+    
+    asyncio.create_task(asyncio.to_thread(cleanup_cache_wrapper))
 
     try:
         cache_path.write_bytes(image_bytes)

@@ -90,6 +90,13 @@ export async function checkAssetsWithEntries(assetIds) {
     return new Set(data.asset_ids_with_entries);
 }
 
+export async function getAllLinkedAssetIds() {
+    const res = await apiFetch(`${API_BASE}/journal/linked-asset-ids`);
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    return new Set(data.asset_ids);
+}
+
 export async function addAssetsToEntry(entryId, assetIds) {
     const res = await apiFetch(`${API_BASE}/journal/entries/${entryId}/assets`, {
         method: "POST",
