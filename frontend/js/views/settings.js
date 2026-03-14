@@ -60,6 +60,7 @@ export async function renderSettings(container) {
                         <input type="file" id="import-file" accept=".json" style="display: none;">
                     </label>
                 </div>
+                <p class="settings-about" style="margin-top: 8px;">Re-importing the same file will create duplicate entries.</p>
                 <div id="import-status" style="margin-top: 8px; font-size: 0.85rem;"></div>
             </div>
             <div class="settings-section">

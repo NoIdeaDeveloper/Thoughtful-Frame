@@ -92,7 +92,7 @@ export async function renderFeed(container) {
         loadMoreEl.querySelector("button").addEventListener("click", async () => {
             currentPage++;
             const btn = loadMoreEl.querySelector("button");
-            btn.textContent = "Loading...";
+            btn.innerHTML = `Loading… <span class="spinner"></span>`;
             btn.disabled = true;
 
             try {
@@ -100,11 +100,12 @@ export async function renderFeed(container) {
                 for (const entry of moreData.entries) {
                     entriesEl.appendChild(renderEntryCard(entry));
                 }
-                btn.textContent = "Load more";
-                btn.disabled = false;
 
                 if (moreData.total <= currentPage * pageSize) {
-                    loadMoreEl.classList.add("hidden");
+                    loadMoreEl.innerHTML = `<p class="all-caught-up">✓ You're all caught up</p>`;
+                } else {
+                    btn.textContent = "Load more";
+                    btn.disabled = false;
                 }
             } catch (err) {
                 btn.textContent = "Load more";

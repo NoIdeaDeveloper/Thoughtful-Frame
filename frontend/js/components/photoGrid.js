@@ -28,7 +28,7 @@ export function renderPhotoGrid(assets, assetsWithEntries, alreadyInEntry = new 
 
         item.innerHTML = `
             <img src="${thumbnailUrl(asset.id)}" loading="lazy" alt="${escapeAttr(asset.originalFileName || 'Photo')}">
-            <span class="entry-badge ${hasEntry && !isAlreadyAdded ? "" : "hidden"}">&#9998;</span>
+            <span class="entry-badge ${hasEntry && !isAlreadyAdded ? "" : "hidden"}" title="Has a journal entry">&#9998;</span>
             <span class="select-check">&#10003;</span>
             ${isAlreadyAdded ? `<span class="already-added-badge">&#10003; Added</span>` : ""}
         `;

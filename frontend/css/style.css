@@ -354,7 +354,7 @@ body {
     max-height: 500px;
     object-fit: contain;
     border-radius: var(--radius);
-    background: #f0ebe4;
+    background: var(--card-bg);
 }
 
 .entry-detail-photos.multi {
@@ -578,7 +578,7 @@ body {
 
 /* ===== Loading Skeleton ===== */
 .skeleton {
-    background: linear-gradient(90deg, #f0ebe4 25%, #e8e0d8 50%, #f0ebe4 75%);
+    background: linear-gradient(90deg, var(--card-bg) 25%, var(--bg) 50%, var(--card-bg) 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
     border-radius: 4px;
@@ -587,6 +587,23 @@ body {
 @keyframes shimmer {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
+}
+
+.spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-left: 6px;
+    opacity: 0.7;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
 .skeleton-card {
@@ -855,6 +872,12 @@ body {
 .load-more-container {
     text-align: center;
     padding: 24px 0;
+}
+
+.all-caught-up {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin: 0;
 }
 
 /* ===== Utility ===== */
