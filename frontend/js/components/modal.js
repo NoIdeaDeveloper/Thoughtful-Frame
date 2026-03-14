@@ -2,6 +2,7 @@ import { thumbnailUrl, createEntry, updateEntry } from "../api.js";
 import { escapeHtml } from "../utils.js";
 import { showRemoveImagesModal } from "../views/entry.js";
 import { launchConfetti } from "../confetti.js";
+import { invalidateLinkedAssetIdsCache } from "../views/browse.js";
 
 const overlay = document.getElementById("modal-overlay");
 const container = document.getElementById("modal-container");
@@ -29,11 +30,11 @@ function toDateInputValue(isoString) {
     return isoString.slice(0, 10);
 }
 
-/** Convert YYYY-MM-DD from date input to ISO string at midnight local time */
+/** Convert YYYY-MM-DD from date input to ISO string at midnight UTC */
 function dateInputToISO(dateStr) {
     if (!dateStr) return new Date().toISOString();
-    // Parse as local date and emit ISO
-    const d = new Date(dateStr + "T00:00:00");
+    // Parse as UTC midnight to avoid timezone-dependent date shifts
+    const d = new Date(dateStr + "T00:00:00Z");
     return d.toISOString();
 }
 
@@ -190,6 +191,9 @@ export function showEntryModal(assetIds, existingEntry = null) {
                 });
             }
             closeModal();
+
+            // Invalidate linked asset IDs cache so browse view reflects the new/updated entry
+            invalidateLinkedAssetIdsCache();
 
             // Confetti on new entries (if enabled in settings)
             if (!isEdit && localStorage.getItem("confettiEnabled") !== "false") {

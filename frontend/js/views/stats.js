@@ -38,15 +38,13 @@ export async function renderStats(container) {
         // Lazy load Chart.js only when needed
         try {
             await import('../vendor/chart.umd.min.js');
+            // Render the chart only if Chart.js loaded successfully
+            renderMonthlyChart("monthly-chart", stats.by_month);
         } catch (error) {
             console.error("Failed to load Chart.js:", error);
-            // Chart rendering will fail, but we can still show the data
-            document.querySelector('.chart-wrapper').innerHTML = 
+            document.querySelector('.chart-wrapper').innerHTML =
                 '<p class="chart-error">Chart visualization unavailable</p>';
         }
-        
-        // Render the chart
-        renderMonthlyChart("monthly-chart", stats.by_month);
         
     } catch (error) {
         console.error("Failed to load statistics:", error);

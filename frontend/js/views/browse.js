@@ -1,46 +1,50 @@
 import { fetchAssets, checkAssetsWithEntries, addAssetsToEntry, fetchEntry, fetchEntriesForAsset, getAllLinkedAssetIds } from "../api.js";
 import { renderPhotoGrid } from "../components/photoGrid.js";
 import { showEntryModal, showEntryPickerModal } from "../components/modal.js";
+import { escapeHtml } from "../utils.js";
 
 let multiSelectActive = false;
 let selectedAssetIds = [];
 
 // Cache for asset IDs that have journal entries
 let _linkedAssetIds = null;
+let _cacheLoaded = false;
 let _cachePromise = null;
 
 async function getLinkedAssetIds() {
     // If we have cached data, return it immediately
-    if (_linkedAssetIds) {
+    if (_cacheLoaded) {
         return _linkedAssetIds;
     }
-    
+
     // If there's already a fetch in progress, wait for it
     if (_cachePromise) {
         return _cachePromise;
     }
-    
+
     // Otherwise, fetch fresh data
     _cachePromise = (async () => {
         try {
-            const response = await getAllLinkedAssetIds();
-            _linkedAssetIds = new Set(response.asset_ids || []);
+            _linkedAssetIds = await getAllLinkedAssetIds();
+            _cacheLoaded = true;
             return _linkedAssetIds;
         } catch (err) {
             console.warn("Failed to fetch linked asset IDs cache, falling back to per-page checks:", err);
             _linkedAssetIds = new Set();
+            _cacheLoaded = false;
             return _linkedAssetIds;
         } finally {
             _cachePromise = null;
         }
     })();
-    
+
     return _cachePromise;
 }
 
 // Function to invalidate cache when new entries are created
 export function invalidateLinkedAssetIdsCache() {
     _linkedAssetIds = null;
+    _cacheLoaded = false;
 }
 
 /**
@@ -158,11 +162,11 @@ export async function renderBrowse(container) {
                 const linkedAssetIds = await getLinkedAssetIds();
                 let assetsWithEntries;
                 
-                if (linkedAssetIds.size > 0) {
-                    // Use cache if available
+                if (_cacheLoaded) {
+                    // Use cache (may be empty set if user has no entries yet — that's correct)
                     assetsWithEntries = new Set(assetIds.filter(id => linkedAssetIds.has(id)));
                 } else {
-                    // Fallback to per-page check if cache failed
+                    // Cache fetch failed; fall back to per-page check
                     console.log("Using fallback per-page check for asset entries");
                     assetsWithEntries = await checkAssetsWithEntries(assetIds);
                 }
@@ -182,7 +186,7 @@ export async function renderBrowse(container) {
                 gridEl.innerHTML = `
                     <div class="error-state">
                         <p>Could not load photos. Is the Immich server running?</p>
-                        <p>${err.message}</p>
+                        <p>${escapeHtml(err.message)}</p>
                     </div>
                 `;
             } else {

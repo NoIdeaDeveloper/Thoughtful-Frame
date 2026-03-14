@@ -168,13 +168,9 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
             controls.querySelector(".play").classList.remove("hidden");
         }
         
-        // Cleanup on page navigation
-        window.addEventListener("beforeunload", stopSliding);
-        
         // Store cleanup function for manual cleanup
-        photosContainer._cleanupGallery = () => {
+        function cleanup() {
             stopSliding();
-            const controls = photosContainer.nextElementSibling;
             if (controls && controls.className === "gallery-controls") {
                 controls.querySelector(".pause")?.removeEventListener("click", pauseSliding);
                 controls.querySelector(".play")?.removeEventListener("click", resumeSliding);
@@ -184,8 +180,14 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
                 photosContainer.removeEventListener("mouseleave", resumeSliding);
             }
             photosContainer.removeEventListener("wheel", onWheel);
-            window.removeEventListener("beforeunload", stopSliding);
-        };
+            window.removeEventListener("beforeunload", cleanup);
+            window.removeEventListener("hashchange", cleanup);
+        }
+        photosContainer._cleanupGallery = cleanup;
+
+        // Cleanup on real page unload or SPA hash navigation
+        window.addEventListener("beforeunload", cleanup);
+        window.addEventListener("hashchange", cleanup, { once: true });
         
     } catch (error) {
         console.error("Gallery setup failed:", error);
@@ -309,12 +311,12 @@ export async function renderEntry(container, entryId) {
             if (photosContainer) {
                 try {
                     const settings = await getSettings();
-                    const shouldAutoSlide = settings.auto_slide_gallery ?? false;
+                    const shouldAutoSlide = settings.auto_slide_gallery ?? true;
                     setupAutoSlidingGallery(photosContainer, shouldAutoSlide);
                 } catch (error) {
                     console.warn("Failed to fetch settings, falling back to localStorage:", error);
                     const autoSlideEnabled = localStorage.getItem("autoSlideEnabled");
-                    const shouldAutoSlide = autoSlideEnabled === "true";
+                    const shouldAutoSlide = autoSlideEnabled === null ? true : autoSlideEnabled === "true";
                     setupAutoSlidingGallery(photosContainer, shouldAutoSlide);
                 }
             }
@@ -350,7 +352,7 @@ export async function renderEntry(container, entryId) {
             <div class="entry-detail">
                 <div class="error-state">
                     <p>Could not load this entry.</p>
-                    <p>${err.message}</p>
+                    <p>${escapeHtml(err.message)}</p>
                     <a href="#/" class="btn btn-secondary">Back to Journal</a>
                 </div>
             </div>

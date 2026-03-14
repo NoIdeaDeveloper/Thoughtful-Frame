@@ -147,3 +147,13 @@ export async function updateSettings(settings) {
     if (!res.ok) throw new Error(await res.text());
     return res.json();
 }
+
+export async function importJournal(data) {
+    const res = await apiFetch(`${API_BASE}/journal/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+}

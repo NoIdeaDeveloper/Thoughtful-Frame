@@ -5,17 +5,27 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import httpx
-from backend.database import init_db, get_db
+from backend.database import open_db, close_db, init_db, get_db
 from backend.routes import journal, immich_proxy, settings
 from backend.routes import auth as auth_routes
 from backend import immich_client
 from backend.auth import require_auth
 from backend.config import APP_PASSWORD
 
+# Configure logging before any class definitions that use logger
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(module)s:%(lineno)d - %(message)s',
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
 
 class CachedStaticFiles(StaticFiles):
     """Custom StaticFiles with long-lived cache headers for better performance."""
-    
+
     async def get_response(self, path: str, scope, receive, send):
         try:
             response = await super().get_response(path, scope, receive, send)
@@ -27,16 +37,6 @@ class CachedStaticFiles(StaticFiles):
         except Exception as e:
             logger.error(f"Failed to serve static file {path}: {e}", exc_info=True)
             raise
-
-# Configure verbose logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(module)s:%(lineno)d - %(message)s',
-    handlers=[
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
 
 # Configure uvicorn logging to be more verbose
 uvicorn_logger = logging.getLogger("uvicorn")
@@ -89,11 +89,8 @@ async def health_check():
     status = {"database": "ok", "immich": "ok"}
 
     try:
-        db = await get_db()
-        try:
-            await db.execute("SELECT 1")
-        finally:
-            await db.close()
+        db = get_db()
+        await db.execute("SELECT 1")
     except Exception as e:
         status["database"] = f"error: {e}"
         logger.error(f"Database health check failed: {e}", exc_info=True)

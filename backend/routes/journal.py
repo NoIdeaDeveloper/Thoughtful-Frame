@@ -1,7 +1,7 @@
 import json
 import logging
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from backend.database import get_db
 from backend.models import (
@@ -78,9 +78,9 @@ async def _build_entries_response(db, entry_rows) -> list[EntryResponse]:
 
 
 @router.get("/entries", response_model=EntryListResponse)
-async def list_entries(page: int = 1, page_size: int = 20):
+async def list_entries(page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=200)):
     logger.debug(f"Listing entries - page: {page}, page_size: {page_size}")
-    db = await get_db()
+    db = get_db()
     try:
         offset = (page - 1) * page_size
 
@@ -106,7 +106,7 @@ async def list_entries(page: int = 1, page_size: int = 20):
 
 @router.get("/entries/{entry_id}", response_model=EntryResponse)
 async def get_entry(entry_id: int):
-    db = await get_db()
+    db = get_db()
     try:
         cursor = await db.execute(
             "SELECT * FROM journal_entries WHERE id = ?", (entry_id,)
@@ -115,6 +115,8 @@ async def get_entry(entry_id: int):
         if not entry:
             raise HTTPException(status_code=404, detail="Entry not found")
         return await _build_entry_response(db, entry)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to get entry {entry_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to get entry")
@@ -131,7 +133,7 @@ async def create_entry(data: EntryCreate):
 
     now = datetime.now(timezone.utc).isoformat()
     created_at = data.created_at if data.created_at else now
-    db = await get_db()
+    db = get_db()
     try:
         # Start transaction
         cursor = await db.execute(
@@ -169,7 +171,7 @@ async def create_entry(data: EntryCreate):
 
 @router.put("/entries/{entry_id}", response_model=EntryResponse)
 async def update_entry(entry_id: int, data: EntryUpdate):
-    db = await get_db()
+    db = get_db()
     try:
         cursor = await db.execute(
             "SELECT * FROM journal_entries WHERE id = ?", (entry_id,)
@@ -195,37 +197,14 @@ async def update_entry(entry_id: int, data: EntryUpdate):
                     status_code=400, detail="At least one asset ID is required"
                 )
 
-            current_assets = await _get_current_asset_ids(db, entry_id)
-
-            # If all new assets are different from current ones, replace all
-            if all(asset_id not in current_assets for asset_id in data.immich_asset_ids):
-                await db.execute(
-                    "DELETE FROM entry_assets WHERE entry_id = ?", (entry_id,)
-                )
-                # Insert all assets using batch operation
-                if data.immich_asset_ids:
-                    await db.executemany(
-                        "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
-                        [(entry_id, asset_id, position) for position, asset_id in enumerate(data.immich_asset_ids)]
-                    )
-            else:
-                # Remove assets not in the new list
-                for asset_id in current_assets:
-                    if asset_id not in data.immich_asset_ids:
-                        await db.execute(
-                            "DELETE FROM entry_assets WHERE entry_id = ? AND immich_asset_id = ?",
-                            (entry_id, asset_id),
-                        )
-
-                # Add new assets not already present
-                assets_to_add = [a for a in data.immich_asset_ids if a not in current_assets]
-                if assets_to_add:
-                    start_pos = await _get_next_position(db, entry_id)
-                    # Insert all assets using batch operation
-                    await db.executemany(
-                        "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
-                        [(entry_id, asset_id, position) for position, asset_id in enumerate(assets_to_add, start_pos)]
-                    )
+            # Always replace with the exact submitted list (preserves order, handles add/remove/reorder)
+            await db.execute(
+                "DELETE FROM entry_assets WHERE entry_id = ?", (entry_id,)
+            )
+            await db.executemany(
+                "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
+                [(entry_id, asset_id, position) for position, asset_id in enumerate(data.immich_asset_ids)]
+            )
 
         # Commit transaction
         await db.commit()
@@ -259,7 +238,7 @@ async def add_assets_to_entry(entry_id: int, data: EntryUpdate):
     if not data.immich_asset_ids:
         raise HTTPException(status_code=400, detail="At least one asset ID is required")
     
-    db = await get_db()
+    db = get_db()
     try:
         # Verify entry exists
         cursor = await db.execute(
@@ -306,7 +285,7 @@ async def remove_assets_from_entry(entry_id: int, request: AssetIdsRequest):
     if not asset_ids:
         raise HTTPException(status_code=400, detail="At least one asset ID is required")
     
-    db = await get_db()
+    db = get_db()
     try:
         # Verify entry exists
         cursor = await db.execute(
@@ -342,7 +321,7 @@ async def remove_assets_from_entry(entry_id: int, request: AssetIdsRequest):
 
 @router.delete("/entries/{entry_id}")
 async def delete_entry(entry_id: int):
-    db = await get_db()
+    db = get_db()
     try:
         cursor = await db.execute(
             "SELECT id FROM journal_entries WHERE id = ?", (entry_id,)
@@ -353,6 +332,8 @@ async def delete_entry(entry_id: int):
         await db.execute("DELETE FROM journal_entries WHERE id = ?", (entry_id,))
         await db.commit()
         return {"ok": True}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to delete entry {entry_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to delete entry")
@@ -360,7 +341,7 @@ async def delete_entry(entry_id: int):
 
 @router.get("/entries/by-asset/{asset_id}", response_model=list[EntryResponse])
 async def get_entries_for_asset(asset_id: str):
-    db = await get_db()
+    db = get_db()
     try:
         cursor = await db.execute(
             """
@@ -383,7 +364,7 @@ async def get_assets_with_entries(data: AssetIdsRequest):
     if not data.asset_ids:
         return AssetIdsWithEntriesResponse(asset_ids_with_entries=[])
 
-    db = await get_db()
+    db = get_db()
     try:
         placeholders = ",".join("?" for _ in data.asset_ids)
         query = f"SELECT DISTINCT immich_asset_id FROM entry_assets WHERE immich_asset_id IN ({placeholders})"
@@ -400,7 +381,7 @@ async def get_assets_with_entries(data: AssetIdsRequest):
 @router.get("/linked-asset-ids")
 async def get_all_linked_asset_ids():
     """Get all Immich asset IDs that have journal entries (for frontend caching)."""
-    db = await get_db()
+    db = get_db()
     try:
         cursor = await db.execute("SELECT DISTINCT immich_asset_id FROM entry_assets")
         rows = await cursor.fetchall()
@@ -413,7 +394,7 @@ async def get_all_linked_asset_ids():
 @router.get("/export")
 async def export_journal():
     """Export all journal entries as a downloadable JSON file."""
-    db = await get_db()
+    db = get_db()
     try:
         cursor = await db.execute("SELECT * FROM journal_entries ORDER BY created_at ASC")
         entry_rows = await cursor.fetchall()
@@ -461,41 +442,36 @@ async def import_journal(data: dict):
     imported = 0
     errors = []
 
-    db = await get_db()
-    try:
-        for i, entry in enumerate(entries_data):
-            try:
-                title = entry.get("title", "")
-                summary = entry.get("summary", "")
-                body = entry.get("body", "")
-                asset_ids = entry.get("immich_asset_ids", [])
-                created_at = entry.get("created_at") or datetime.now(timezone.utc).isoformat()
-                updated_at = entry.get("updated_at") or created_at
+    db = get_db()
+    for i, entry in enumerate(entries_data):
+        try:
+            title = entry.get("title", "")
+            summary = entry.get("summary", "")
+            body = entry.get("body", "")
+            asset_ids = entry.get("immich_asset_ids", [])
+            created_at = entry.get("created_at") or datetime.now(timezone.utc).isoformat()
+            updated_at = entry.get("updated_at") or created_at
 
-                if not body or not asset_ids:
-                    errors.append(f"Entry {i}: missing body or asset IDs")
-                    continue
+            if not body or not asset_ids:
+                errors.append(f"Entry {i}: missing body or asset IDs")
+                continue
 
-                cursor = await db.execute(
-                    "INSERT INTO journal_entries (title, summary, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-                    (title, summary, body, created_at, updated_at),
+            cursor = await db.execute(
+                "INSERT INTO journal_entries (title, summary, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                (title, summary, body, created_at, updated_at),
+            )
+            entry_id = cursor.lastrowid
+
+            if asset_ids:
+                await db.executemany(
+                    "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
+                    [(entry_id, asset_id, position) for position, asset_id in enumerate(asset_ids)]
                 )
-                entry_id = cursor.lastrowid
 
-                # Insert all assets using batch operation
-                if asset_ids:
-                    await db.executemany(
-                        "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
-                        [(entry_id, asset_id, position) for position, asset_id in enumerate(asset_ids)]
-                    )
-
-                imported += 1
-            except Exception as e:
-                errors.append(f"Entry {i}: {str(e)}")
-
-        await db.commit()
-    except Exception as e:
-        await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
+            await db.commit()
+            imported += 1
+        except Exception as e:
+            await db.rollback()
+            errors.append(f"Entry {i}: {str(e)}")
 
     return {"imported": imported, "errors": errors}

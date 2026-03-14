@@ -1,3 +1,4 @@
+import sqlite3
 import aiosqlite
 from backend.config import DATABASE_PATH
 
@@ -71,7 +72,7 @@ async def init_db():
     try:
         await db.execute("ALTER TABLE journal_entries ADD COLUMN summary TEXT NOT NULL DEFAULT ''")
         await db.commit()
-    except Exception:
+    except sqlite3.OperationalError:
         pass  # Column already exists
 
     await db.commit()

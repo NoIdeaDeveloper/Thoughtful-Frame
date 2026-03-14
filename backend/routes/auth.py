@@ -24,6 +24,7 @@ async def login(body: LoginRequest, response: Response):
         max_age=SESSION_TTL_SECONDS,
         httponly=True,
         samesite="strict",
+        secure=True,
         path="/",
     )
     return {"ok": True}

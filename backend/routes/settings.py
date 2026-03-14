@@ -12,7 +12,7 @@ async def get_settings():
     """Get current application settings"""
     logger.debug("Fetching application settings")
     
-    db = await get_db()
+    db = get_db()
     try:
         cursor = await db.execute("SELECT key, value FROM settings WHERE key IN ('auto_slide_gallery', 'theme', 'confetti_enabled')")
         rows = await cursor.fetchall()
@@ -34,12 +34,10 @@ async def update_settings(settings: SettingsUpdate):
     """Update application settings"""
     logger.debug(f"Updating settings: {settings}")
     
-    if not isinstance(settings.auto_slide_gallery, bool):
-        raise HTTPException(status_code=400, detail="auto_slide_gallery must be a boolean value")
     if settings.theme not in ("dark", "light"):
         raise HTTPException(status_code=400, detail="theme must be 'dark' or 'light'")
 
-    db = await get_db()
+    db = get_db()
     try:
         # Batch insert all settings in a single operation
         await db.executemany(
@@ -66,7 +64,7 @@ async def update_settings(settings: SettingsUpdate):
 @router.get("/stats", response_model=dict)
 async def get_journal_stats():
     """Get journal statistics by month"""
-    db = await get_db()
+    db = get_db()
     try:
         # Query entries grouped by month
         cursor = await db.execute("""

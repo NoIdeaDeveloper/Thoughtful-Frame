@@ -1,4 +1,4 @@
-import { getSettings, updateSettings } from "../api.js";
+import { getSettings, updateSettings, importJournal } from "../api.js";
 import { applyTheme } from "../app.js";
 
 export async function renderSettings(container) {
@@ -171,13 +171,7 @@ export async function renderSettings(container) {
         try {
             const text = await file.text();
             const data = JSON.parse(text);
-            const res = await fetch("/api/journal/import", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data),
-            });
-            if (!res.ok) throw new Error(await res.text());
-            const result = await res.json();
+            const result = await importJournal(data);
             statusEl.textContent = `Imported ${result.imported} entries successfully.`;
             statusEl.style.color = "var(--accent)";
         } catch (err) {

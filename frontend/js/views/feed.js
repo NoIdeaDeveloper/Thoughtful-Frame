@@ -1,5 +1,6 @@
 import { fetchEntries } from "../api.js";
 import { renderEntryCard } from "../components/entryCard.js";
+import { escapeHtml } from "../utils.js";
 
 /**
  * Renders the journal feed with all entries
@@ -117,7 +118,7 @@ export async function renderFeed(container) {
         entriesEl.innerHTML = `
             <div class="error-state">
                 <p>Could not load journal entries.</p>
-                <p>${err.message}</p>
+                <p>${escapeHtml(err.message)}</p>
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 16px;">
                     Please check your connection and try refreshing the page.
                 </p>

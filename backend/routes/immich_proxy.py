@@ -23,7 +23,9 @@ Path(CACHE_DIR).mkdir(parents=True, exist_ok=True)
 
 def get_cache_path(asset_id: str, variant: str) -> Path:
     """Return the cache path for a given asset and variant (thumb/preview/original)."""
-    return Path(CACHE_DIR) / f"{asset_id}_{variant}"
+    safe_asset_id = Path(asset_id).name
+    safe_variant = Path(variant).name
+    return Path(CACHE_DIR) / f"{safe_asset_id}_{safe_variant}"
 
 
 def cleanup_cache_if_needed():
