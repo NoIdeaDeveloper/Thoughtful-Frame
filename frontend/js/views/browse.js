@@ -106,6 +106,11 @@ export async function renderBrowse(container) {
 
     // Toggle multi-select mode
     toggleBtn.addEventListener("click", () => {
+        if (isAddMode && !multiSelectActive) {
+            window.location.hash = `#/entry/${entryIdForAdding}`;
+            return;
+        }
+
         multiSelectActive = !multiSelectActive;
         toggleBtn.textContent = multiSelectActive ? "Cancel Selection" : (isAddMode ? 'Cancel' : 'Select Multiple');
         gridEl.classList.toggle("multi-select-active", multiSelectActive);
@@ -116,6 +121,9 @@ export async function renderBrowse(container) {
                 el.classList.remove("selected");
             });
             removeSelectionBar();
+            if (isAddMode) {
+                window.location.hash = `#/entry/${entryIdForAdding}`;
+            }
         }
     });
 

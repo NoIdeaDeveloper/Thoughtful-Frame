@@ -270,7 +270,6 @@ export async function renderEntry(container, entryId) {
                 <div class="entry-detail-actions">
                     <button class="btn btn-secondary" id="entry-edit">Edit</button>
                     <button class="btn btn-danger" id="entry-delete">Delete</button>
-                    ${isMulti ? `<button class="btn btn-secondary" id="entry-remove-images">Remove Images</button>` : ""}
                     <a href="#/" class="btn btn-secondary">Back to Journal</a>
                 </div>
             </div>
@@ -340,13 +339,7 @@ export async function renderEntry(container, entryId) {
             showDeleteConfirm(entry.id);
         });
 
-        // Remove Images (multi-photo only)
-        const removeImagesBtn = document.getElementById("entry-remove-images");
-        if (removeImagesBtn) {
-            removeImagesBtn.addEventListener("click", () => {
-                showRemoveImagesModal(entry.id, entry.immich_asset_ids);
-            });
-        }
+
     } catch (err) {
         container.innerHTML = `
             <div class="entry-detail">
