@@ -89,9 +89,9 @@ export async function renderFeed(container) {
             loadMoreEl.classList.remove("hidden");
         }
 
-        loadMoreEl.querySelector("button").addEventListener("click", async () => {
+        const btn = loadMoreEl.querySelector("button");
+        btn.addEventListener("click", async () => {
             currentPage++;
-            const btn = loadMoreEl.querySelector("button");
             btn.innerHTML = `Loading… <span class="spinner"></span>`;
             btn.disabled = true;
 
