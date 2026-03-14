@@ -27,8 +27,6 @@ async def get_settings():
     except Exception as e:
         logger.error(f"Failed to fetch settings: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch settings")
-    finally:
-        await db.close()
 
 
 @router.put("/settings", response_model=SettingsResponse)
@@ -63,8 +61,6 @@ async def update_settings(settings: SettingsUpdate):
     except Exception as e:
         logger.error(f"Failed to update settings: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to update settings")
-    finally:
-        await db.close()
 
 
 @router.get("/stats", response_model=dict)
@@ -91,6 +87,6 @@ async def get_journal_stats():
         }
         
         return stats
-        
-    finally:
-        await db.close()
+    except Exception as e:
+        logger.error(f"Failed to get journal stats: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get journal stats")

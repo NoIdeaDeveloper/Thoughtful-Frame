@@ -99,8 +99,9 @@ async def list_entries(page: int = 1, page_size: int = 20):
         return EntryListResponse(
             entries=result, total=total, page=page, page_size=page_size
         )
-    finally:
-        await db.close()
+    except Exception as e:
+        logger.error(f"Failed to list entries: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to list entries")
 
 
 @router.get("/entries/{entry_id}", response_model=EntryResponse)
@@ -114,8 +115,9 @@ async def get_entry(entry_id: int):
         if not entry:
             raise HTTPException(status_code=404, detail="Entry not found")
         return await _build_entry_response(db, entry)
-    finally:
-        await db.close()
+    except Exception as e:
+        logger.error(f"Failed to get entry {entry_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get entry")
 
 
 
@@ -163,8 +165,6 @@ async def create_entry(data: EntryCreate):
         logger.error(f"Failed to create entry: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to create entry: {str(e)}")
 
-    finally:
-        await db.close()
 
 
 @router.put("/entries/{entry_id}", response_model=EntryResponse)
@@ -244,8 +244,6 @@ async def update_entry(entry_id: int, data: EntryUpdate):
         logger.error(f"Failed to update entry: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to update entry: {str(e)}")
 
-    finally:
-        await db.close()
 
 
 @router.post("/entries/{entry_id}/assets")
@@ -277,11 +275,11 @@ async def add_assets_to_entry(entry_id: int, data: EntryUpdate):
             return {"message": "All specified assets already exist in this entry", "added": []}
 
         start_pos = await _get_next_position(db, entry_id)
-        for position, asset_id in enumerate(new_assets, start=start_pos):
-            await db.execute(
-                "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
-                (entry_id, asset_id, position),
-            )
+        # Insert all assets using batch operation
+        await db.executemany(
+            "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
+            [(entry_id, asset_id, position) for position, asset_id in enumerate(new_assets, start=start_pos)]
+        )
         
         await db.commit()
         return {"message": f"Successfully added {len(new_assets)} assets", "added": new_assets}
@@ -292,8 +290,6 @@ async def add_assets_to_entry(entry_id: int, data: EntryUpdate):
         await db.rollback()
         logger.error(f"Failed to add assets to entry: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to add assets: {str(e)}")
-    finally:
-        await db.close()
 
 
 @router.post("/entries/{entry_id}/assets/remove")
@@ -342,8 +338,6 @@ async def remove_assets_from_entry(entry_id: int, request: AssetIdsRequest):
         await db.rollback()
         logger.error(f"Failed to remove assets from entry: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to remove assets: {str(e)}")
-    finally:
-        await db.close()
 
 
 @router.delete("/entries/{entry_id}")
@@ -359,8 +353,9 @@ async def delete_entry(entry_id: int):
         await db.execute("DELETE FROM journal_entries WHERE id = ?", (entry_id,))
         await db.commit()
         return {"ok": True}
-    finally:
-        await db.close()
+    except Exception as e:
+        logger.error(f"Failed to delete entry {entry_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to delete entry")
 
 
 @router.get("/entries/by-asset/{asset_id}", response_model=list[EntryResponse])
@@ -378,8 +373,9 @@ async def get_entries_for_asset(asset_id: str):
         )
         entries = await cursor.fetchall()
         return await _build_entries_response(db, entries)
-    finally:
-        await db.close()
+    except Exception as e:
+        logger.error(f"Failed to get entries for asset {asset_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get entries for asset")
 
 
 @router.post("/entries/by-assets", response_model=AssetIdsWithEntriesResponse)
@@ -396,8 +392,9 @@ async def get_assets_with_entries(data: AssetIdsRequest):
         return AssetIdsWithEntriesResponse(
             asset_ids_with_entries=[r["immich_asset_id"] for r in rows]
         )
-    finally:
-        await db.close()
+    except Exception as e:
+        logger.error(f"Failed to get assets with entries: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get assets with entries")
 
 
 @router.get("/linked-asset-ids")
@@ -408,8 +405,9 @@ async def get_all_linked_asset_ids():
         cursor = await db.execute("SELECT DISTINCT immich_asset_id FROM entry_assets")
         rows = await cursor.fetchall()
         return {"asset_ids": [r["immich_asset_id"] for r in rows]}
-    finally:
-        await db.close()
+    except Exception as e:
+        logger.error(f"Failed to get linked asset IDs: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get linked asset IDs")
 
 
 @router.get("/export")
@@ -420,8 +418,9 @@ async def export_journal():
         cursor = await db.execute("SELECT * FROM journal_entries ORDER BY created_at ASC")
         entry_rows = await cursor.fetchall()
         entries = await _build_entries_response(db, entry_rows)
-    finally:
-        await db.close()
+    except Exception as e:
+        logger.error(f"Failed to export journal: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to export journal")
 
     export_data = {
         "version": "1",
@@ -498,7 +497,5 @@ async def import_journal(data: dict):
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
-    finally:
-        await db.close()
 
     return {"imported": imported, "errors": errors}

@@ -48,11 +48,15 @@ uvicorn_access_logger.setLevel(logging.DEBUG)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Application starting up...")
-    logger.debug("Initializing database...")
+    logger.debug("Opening database connection...")
+    await open_db()
+    logger.debug("Initializing database schema...")
     await init_db()
     logger.info("Database initialized successfully")
     yield
     logger.info("Application shutting down...")
+    logger.debug("Closing database connection...")
+    await close_db()
     logger.debug("Closing Immich client...")
     await immich_client.close()
     logger.info("Shutdown complete")
