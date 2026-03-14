@@ -415,6 +415,9 @@ function showLightbox(srcs, startIndex = 0) {
         if (e.key === "ArrowLeft" && total > 1) goTo(current - 1);
     }
     document.addEventListener("keydown", keyHandler);
+
+    // Clean up if user navigates away without closing the lightbox
+    window.addEventListener("hashchange", close, { once: true });
 }
 
 /**

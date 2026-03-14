@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Response, Request
 from pydantic import BaseModel
 
-from backend.config import APP_PASSWORD
+from backend.config import APP_PASSWORD, SECURE_COOKIES
 from backend.auth import SESSION_COOKIE, SESSION_TTL_SECONDS, create_session, delete_session
 
 router = APIRouter()
@@ -24,7 +24,7 @@ async def login(body: LoginRequest, response: Response):
         max_age=SESSION_TTL_SECONDS,
         httponly=True,
         samesite="strict",
-        secure=True,
+        secure=SECURE_COOKIES,
         path="/",
     )
     return {"ok": True}

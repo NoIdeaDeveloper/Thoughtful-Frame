@@ -12,8 +12,13 @@ SESSION_TTL_SECONDS = 30 * 24 * 3600  # 30 days
 
 
 def create_session() -> str:
+    # Prune expired sessions before inserting a new one
+    now = time.time()
+    expired = [t for t, exp in _sessions.items() if exp <= now]
+    for t in expired:
+        del _sessions[t]
     token = secrets.token_hex(32)
-    _sessions[token] = time.time() + SESSION_TTL_SECONDS
+    _sessions[token] = now + SESSION_TTL_SECONDS
     return token
 
 

@@ -26,9 +26,9 @@ logger = logging.getLogger(__name__)
 class CachedStaticFiles(StaticFiles):
     """Custom StaticFiles with long-lived cache headers for better performance."""
 
-    async def get_response(self, path: str, scope, receive, send):
+    async def get_response(self, path: str, scope):
         try:
-            response = await super().get_response(path, scope, receive, send)
+            response = await super().get_response(path, scope)
             # Extract just the filename part for matching
             filename = path.split('/')[-1]
             if filename.endswith(('.js', '.css', '.jpg', '.jpeg', '.png', '.gif', '.svg', '.woff', '.woff2')):

@@ -293,7 +293,13 @@ async def remove_assets_from_entry(entry_id: int, request: AssetIdsRequest):
         )
         if not await cursor.fetchone():
             raise HTTPException(status_code=404, detail="Entry not found")
-        
+
+        # Ensure removal would not leave the entry with zero assets
+        current_assets = await _get_current_asset_ids(db, entry_id)
+        remaining = [a for a in current_assets if a not in asset_ids]
+        if len(remaining) == 0:
+            raise HTTPException(status_code=400, detail="Cannot remove all assets from an entry")
+
         # Remove specified assets
         removed_count = 0
         for asset_id in asset_ids:
@@ -303,7 +309,7 @@ async def remove_assets_from_entry(entry_id: int, request: AssetIdsRequest):
             )
             if cursor.rowcount > 0:
                 removed_count += 1
-        
+
         await db.commit()
         
         if removed_count == 0:
@@ -335,6 +341,7 @@ async def delete_entry(entry_id: int):
     except HTTPException:
         raise
     except Exception as e:
+        await db.rollback()
         logger.error(f"Failed to delete entry {entry_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to delete entry")
 
