@@ -1,13 +1,16 @@
 import logging
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 import httpx
 from backend.database import init_db, get_db
 from backend.routes import journal, immich_proxy, settings
+from backend.routes import auth as auth_routes
 from backend import immich_client
+from backend.auth import require_auth
+from backend.config import APP_PASSWORD
 
 # Configure verbose logging
 logging.basicConfig(
@@ -41,6 +44,20 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Thoughtful Frame", lifespan=lifespan)
 
+# Auth middleware: protect all /api/* routes except /api/auth/* and /api/health
+UNPROTECTED_PREFIXES = ("/api/auth/", "/api/health")
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    if APP_PASSWORD and request.url.path.startswith("/api/"):
+        if not any(request.url.path.startswith(p) for p in UNPROTECTED_PREFIXES):
+            try:
+                require_auth(request)
+            except Exception:
+                return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+    return await call_next(request)
+
+app.include_router(auth_routes.router, prefix="/api")
 app.include_router(immich_proxy.router, prefix="/api/immich")
 app.include_router(journal.router, prefix="/api/journal")
 app.include_router(settings.router, prefix="/api")
@@ -87,6 +104,18 @@ async def serve_index():
     logger.debug("Serving index.html")
     return FileResponse(
         "frontend/index.html",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
+
+
+@app.get("/login")
+async def serve_login():
+    return FileResponse(
+        "frontend/login.html",
         headers={
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",

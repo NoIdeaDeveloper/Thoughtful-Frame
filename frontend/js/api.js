@@ -1,13 +1,22 @@
 const API_BASE = "/api";
 
+async function apiFetch(url, options = {}) {
+    const res = await fetch(url, options);
+    if (res.status === 401) {
+        window.location.href = "/login";
+        throw new Error("Unauthorized");
+    }
+    return res;
+}
+
 export async function fetchAssets(page = 1, pageSize = 100) {
-    const res = await fetch(`${API_BASE}/immich/assets?page=${page}&page_size=${pageSize}`);
+    const res = await apiFetch(`${API_BASE}/immich/assets?page=${page}&page_size=${pageSize}`);
     if (!res.ok) throw new Error(await res.text());
     return res.json();
 }
 
 export async function fetchAssetDetail(assetId) {
-    const res = await fetch(`${API_BASE}/immich/assets/${assetId}`);
+    const res = await apiFetch(`${API_BASE}/immich/assets/${assetId}`);
     if (!res.ok) throw new Error(await res.text());
     return res.json();
 }
@@ -25,25 +34,25 @@ export function previewUrl(assetId) {
 }
 
 export async function fetchEntries(page = 1, pageSize = 20) {
-    const res = await fetch(`${API_BASE}/journal/entries?page=${page}&page_size=${pageSize}`);
+    const res = await apiFetch(`${API_BASE}/journal/entries?page=${page}&page_size=${pageSize}`);
     if (!res.ok) throw new Error(await res.text());
     return res.json();
 }
 
 export async function fetchEntry(entryId) {
-    const res = await fetch(`${API_BASE}/journal/entries/${entryId}`);
+    const res = await apiFetch(`${API_BASE}/journal/entries/${entryId}`);
     if (!res.ok) throw new Error(await res.text());
     return res.json();
 }
 
 export async function fetchEntriesForAsset(assetId) {
-    const res = await fetch(`${API_BASE}/journal/entries/by-asset/${assetId}`);
+    const res = await apiFetch(`${API_BASE}/journal/entries/by-asset/${assetId}`);
     if (!res.ok) throw new Error(await res.text());
     return res.json();
 }
 
 export async function createEntry(data) {
-    const res = await fetch(`${API_BASE}/journal/entries`, {
+    const res = await apiFetch(`${API_BASE}/journal/entries`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -53,7 +62,7 @@ export async function createEntry(data) {
 }
 
 export async function updateEntry(entryId, data) {
-    const res = await fetch(`${API_BASE}/journal/entries/${entryId}`, {
+    const res = await apiFetch(`${API_BASE}/journal/entries/${entryId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -63,7 +72,7 @@ export async function updateEntry(entryId, data) {
 }
 
 export async function deleteEntry(entryId) {
-    const res = await fetch(`${API_BASE}/journal/entries/${entryId}`, {
+    const res = await apiFetch(`${API_BASE}/journal/entries/${entryId}`, {
         method: "DELETE",
     });
     if (!res.ok) throw new Error(await res.text());
@@ -71,7 +80,7 @@ export async function deleteEntry(entryId) {
 }
 
 export async function checkAssetsWithEntries(assetIds) {
-    const res = await fetch(`${API_BASE}/journal/entries/by-assets`, {
+    const res = await apiFetch(`${API_BASE}/journal/entries/by-assets`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ asset_ids: assetIds }),
@@ -82,7 +91,7 @@ export async function checkAssetsWithEntries(assetIds) {
 }
 
 export async function addAssetsToEntry(entryId, assetIds) {
-    const res = await fetch(`${API_BASE}/journal/entries/${entryId}/assets`, {
+    const res = await apiFetch(`${API_BASE}/journal/entries/${entryId}/assets`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ immich_asset_ids: assetIds }),
@@ -92,7 +101,7 @@ export async function addAssetsToEntry(entryId, assetIds) {
 }
 
 export async function removeAssetsFromEntry(entryId, assetIds) {
-    const res = await fetch(`${API_BASE}/journal/entries/${entryId}/assets/remove`, {
+    const res = await apiFetch(`${API_BASE}/journal/entries/${entryId}/assets/remove`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ asset_ids: assetIds }),
@@ -104,26 +113,26 @@ export async function removeAssetsFromEntry(entryId, assetIds) {
 let _immichConfigCache = null;
 export async function fetchImmichConfig() {
     if (_immichConfigCache) return _immichConfigCache;
-    const res = await fetch(`${API_BASE}/immich/assets/config`);
+    const res = await apiFetch(`${API_BASE}/immich/assets/config`);
     if (!res.ok) throw new Error(await res.text());
     _immichConfigCache = await res.json();
     return _immichConfigCache;
 }
 
 export async function getSettings() {
-    const res = await fetch(`${API_BASE}/settings`);
+    const res = await apiFetch(`${API_BASE}/settings`);
     if (!res.ok) throw new Error(await res.text());
     return res.json();
 }
 
 export async function fetchJournalStats() {
-    const res = await fetch(`${API_BASE}/stats`);
+    const res = await apiFetch(`${API_BASE}/stats`);
     if (!res.ok) throw new Error(await res.text());
     return res.json();
 }
 
 export async function updateSettings(settings) {
-    const res = await fetch(`${API_BASE}/settings`, {
+    const res = await apiFetch(`${API_BASE}/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),

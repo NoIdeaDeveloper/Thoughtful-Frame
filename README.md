@@ -11,12 +11,37 @@ A journaling app for your Immich photo library
 - Group entries display a horizontal scrollable row of photos
 - Edit and delete entries at any time
 - Immich API key stays server-side (never exposed to browser)
+- Optional app password to restrict access on your local network
 
 ## Requirements
 
 - Running Immich server (local network, self-hosted)
 - Immich API key (Immich → Account Settings → API Keys)
 - Docker
+
+## 🔒 Security
+
+### App Password (Recommended)
+
+By default, anyone on your local network who can reach the app's port can use it. To restrict access, set an `APP_PASSWORD` in your `.env`:
+
+```env
+APP_PASSWORD=your_password_here
+```
+
+When set:
+- Visiting the app redirects to a login page
+- A session cookie (HttpOnly, SameSite=Strict) is issued on successful login and lasts 30 days
+- All API routes return `401 Unauthorized` without a valid session
+- Removing `APP_PASSWORD` disables auth entirely (backwards compatible)
+
+### What's Protected by Default
+
+| Concern | Status |
+|---|---|
+| Immich API key exposed to browser | ✅ Never — server-side only |
+| API key committed to Git | ✅ `.env` is gitignored |
+| Unauthorized access from local network | ⚠️ Set `APP_PASSWORD` to restrict |
 
 ## 🌉 Your Unraid Network Setup
 
@@ -88,6 +113,9 @@ nano .env
 ```env
 # Your Immich API key (REQUIRED - get from Immich settings)
 IMMICH_API_KEY=your_actual_api_key_here
+
+# Recommended: set a password to restrict access on your network
+APP_PASSWORD=your_password_here
 
 # Optional overrides (most users don't need to change these):
 # IMMICH_BASE_URL=http://192.168.1.180:8080/api

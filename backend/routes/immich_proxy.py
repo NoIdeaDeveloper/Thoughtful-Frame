@@ -117,16 +117,14 @@ async def get_config():
 
 @router.get("/assets")
 async def list_assets(page: int = 1, page_size: int = 50):
+    page_size = min(page_size, 1000)
     try:
         data = await immich_client.get_assets(page, page_size)
 
-        # Ensure we have total count for pagination
+        # Log a warning if Immich omits total (frontend handles this gracefully via page-size fallback)
         if data and "assets" in data and "items" in data["assets"]:
-            items = data["assets"]["items"]
             if "total" not in data["assets"] or data["assets"]["total"] is None:
-                estimated_total = max(len(items), page_size)
-                data["assets"]["total"] = estimated_total
-                logger.warning(f"Immich didn't provide total count, estimated as {estimated_total}")
+                logger.warning("Immich didn't provide total count; frontend will use page-size fallback")
 
         return data
     except httpx.ConnectError:

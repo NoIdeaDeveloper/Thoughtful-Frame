@@ -12,3 +12,4 @@ if missing_vars:
 IMMICH_BASE_URL = os.environ["IMMICH_BASE_URL"]
 IMMICH_API_KEY = os.environ["IMMICH_API_KEY"]
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "/data/thoughtful_frame.db")
+APP_PASSWORD = os.environ.get("APP_PASSWORD")  # Optional; if unset, auth is disabled
