@@ -334,8 +334,8 @@ function extractAssets(data) {
 }
 
 function hasMorePages(data, currentPage, pageSize) {
-    if (data.assets && data.assets.total) {
-        return data.assets.total > currentPage * pageSize;
+    if (data.assets && data.assets.nextPage) {
+        return true;
     }
     const items = extractAssets(data);
     return items.length === pageSize;
