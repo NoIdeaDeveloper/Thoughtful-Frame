@@ -174,7 +174,6 @@ volumes:
 
 ```bash
 cd /mnt/user/appdata/thoughtful-frame
-docker compose down
 git pull
 docker compose up -d --build
 ```
