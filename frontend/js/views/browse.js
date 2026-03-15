@@ -90,12 +90,16 @@ export async function renderBrowse(container) {
             <div class="photo-grid" id="photo-grid">
                 ${skeletonGrid(12)}
             </div>
-            <div id="scroll-sentinel" class="scroll-sentinel"></div>
+            <div class="pagination-controls" id="pagination-controls">
+                <button class="btn btn-secondary" id="prev-page" disabled>← Previous</button>
+                <button class="btn btn-secondary" id="next-page" disabled>Next →</button>
+            </div>
         </div>
     `;
 
     const gridEl = document.getElementById("photo-grid");
-    const sentinelEl = document.getElementById("scroll-sentinel");
+    const prevBtn = document.getElementById("prev-page");
+    const nextBtn = document.getElementById("next-page");
     const toggleBtn = document.getElementById("toggle-select");
     const addToEntryBtn = document.getElementById("add-to-entry");
 
@@ -151,65 +155,54 @@ export async function renderBrowse(container) {
         });
     }
 
-    async function loadNextPage() {
-        if (isLoading || !hasMore) return;
+    async function loadPage(page) {
+        if (isLoading) return;
         isLoading = true;
+        prevBtn.disabled = true;
+        nextBtn.disabled = true;
+        gridEl.innerHTML = skeletonGrid(12);
 
         try {
-            const data = await fetchAssets(currentPage, pageSize);
+            const data = await fetchAssets(page, pageSize);
             const assets = extractAssets(data);
 
-            if (currentPage === 1) {
-                gridEl.innerHTML = "";
-            }
+            gridEl.innerHTML = "";
 
             if (assets.length > 0) {
                 const assetIds = assets.map((a) => a.id);
-                
-                // Use cached linked asset IDs instead of making API call for each page
+
                 const linkedAssetIds = await getLinkedAssetIds();
                 let assetsWithEntries;
-                
+
                 if (_cacheLoaded) {
-                    // Use cache (may be empty set if user has no entries yet — that's correct)
                     assetsWithEntries = new Set(assetIds.filter(id => linkedAssetIds.has(id)));
                 } else {
-                    // Cache fetch failed; fall back to per-page check
                     console.log("Using fallback per-page check for asset entries");
                     assetsWithEntries = await checkAssetsWithEntries(assetIds);
                 }
-                
+
                 gridEl.appendChild(renderPhotoGrid(assets, assetsWithEntries, existingAssetIds));
                 attachGridClickHandlers(gridEl);
             }
 
-            hasMore = hasMorePages(data, currentPage, pageSize);
-            if (!hasMore) {
-                sentinelEl.remove();
-            }
+            hasMore = hasMorePages(data, page, pageSize);
+            currentPage = page;
 
-            currentPage++;
+            prevBtn.disabled = currentPage <= 1;
+            nextBtn.disabled = !hasMore;
+
+            gridEl.scrollIntoView({ behavior: "smooth", block: "start" });
         } catch (err) {
-            if (currentPage === 1) {
-                gridEl.innerHTML = `
-                    <div class="error-state">
-                        <p>Could not load photos. Is the Immich server running?</p>
-                        <p>${escapeHtml(err.message)}</p>
-                    </div>
-                `;
-            } else {
-                console.error("Failed to load more assets:", err);
-            }
+            gridEl.innerHTML = `
+                <div class="error-state">
+                    <p>Could not load photos. Is the Immich server running?</p>
+                    <p>${escapeHtml(err.message)}</p>
+                </div>
+            `;
+            prevBtn.disabled = currentPage <= 1;
+            nextBtn.disabled = true;
         } finally {
             isLoading = false;
-        }
-
-        // If sentinel is still in viewport after loading, keep loading
-        if (hasMore && sentinelEl.parentNode) {
-            const rect = sentinelEl.getBoundingClientRect();
-            if (rect.top < window.innerHeight + 200) {
-                loadNextPage();
-            }
         }
     }
 
@@ -300,21 +293,10 @@ export async function renderBrowse(container) {
         });
     }
 
-    // Load first page, then set up observer so it correctly detects
-    // whether the sentinel is still in view after the initial load.
-    await loadNextPage();
+    prevBtn.addEventListener("click", () => { if (!prevBtn.disabled) loadPage(currentPage - 1); });
+    nextBtn.addEventListener("click", () => { if (!nextBtn.disabled) loadPage(currentPage + 1); });
 
-    if (sentinelEl.parentNode) {
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (entries[0].isIntersecting) {
-                    loadNextPage();
-                }
-            },
-            { rootMargin: "200px" }
-        );
-        observer.observe(sentinelEl);
-    }
+    await loadPage(1);
 }
 
 

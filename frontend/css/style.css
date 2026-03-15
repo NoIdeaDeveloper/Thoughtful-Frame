@@ -1111,10 +1111,13 @@ kbd {
 
 }
 
-/* ===== Infinite scroll sentinel ===== */
-.scroll-sentinel {
-    height: 40px;
-    width: 100%;
+/* ===== Pagination controls ===== */
+.pagination-controls {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-bottom: 2rem;
 }
 
 /* ===== Already-in-entry photo grid state ===== */
