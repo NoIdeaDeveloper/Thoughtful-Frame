@@ -8,8 +8,11 @@ services:
       - IMMICH_BASE_URL=${IMMICH_BASE_URL:-http://192.168.1.180:8080/api}
       - IMMICH_API_KEY=${IMMICH_API_KEY}
       - DATABASE_PATH=${DATABASE_PATH:-/data/thoughtful_frame.db}
+      - APP_PASSWORD=${APP_PASSWORD:-}
+      - PUID=${PUID:-99}
+      - PGID=${PGID:-100}
     volumes:
-      - ./data:/data
+      - /mnt/user/appdata/thoughtful-frame:/data
     restart: unless-stopped
     logging:
       driver: "json-file"
