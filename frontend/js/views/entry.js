@@ -233,24 +233,26 @@ export async function renderEntry(container, entryId) {
         ]);
         const isMulti = entry.immich_asset_ids.length > 1;
 
-        function photoWrapper(id, lazy = true) {
+        const totalPhotos = entry.immich_asset_ids.length;
+        function photoWrapper(id, index, lazy = true) {
+            const altText = totalPhotos > 1 ? `Photo ${index + 1} of ${totalPhotos}` : "Photo";
             const link = immichConfig
                 ? `<a class="immich-link" href="${immichConfig.immich_web_url}/photos/${id}" target="_blank" rel="noopener" title="View in Immich">&#x2197;</a>`
                 : "";
-            return `<div class="entry-photo-wrapper"><img src="${previewUrl(id)}"${lazy ? ' loading="lazy"' : ""} alt="Photo" data-asset-id="${id}">${link}</div>`;
+            return `<div class="entry-photo-wrapper"><img src="${previewUrl(id)}"${lazy ? ' loading="lazy"' : ""} alt="${altText}" data-asset-id="${id}">${link}</div>`;
         }
 
         let photosHtml;
         if (isMulti) {
             photosHtml = `
                 <div class="entry-detail-photos multi">
-                    ${entry.immich_asset_ids.map((id, i) => photoWrapper(id, i > 0)).join("")}
+                    ${entry.immich_asset_ids.map((id, i) => photoWrapper(id, i, i > 0)).join("")}
                 </div>
             `;
         } else {
             photosHtml = `
                 <div class="entry-detail-photos single">
-                    ${photoWrapper(entry.immich_asset_ids[0], false)}
+                    ${photoWrapper(entry.immich_asset_ids[0], 0, false)}
                 </div>
             `;
         }

@@ -16,6 +16,10 @@
     --card-bg: #FFFFFF;
     --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     --border: #E8E0D8;
+    --danger: #c0392b;
+    --danger-border: #e8c4c0;
+    --danger-bg: #fdf2f1;
+    --danger-bg-subtle: #fff8f8;
 }
 
 [data-theme="dark"] {
@@ -27,6 +31,10 @@
     --card-bg: #262626;
     --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
     --border: #383838;
+    --danger: #e07070;
+    --danger-border: #5a3030;
+    --danger-bg: #3a2020;
+    --danger-bg-subtle: #2e2020;
 }
 
 /* ===== Reset & Base ===== */
@@ -41,6 +49,21 @@ body {
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
+}
+
+/* ===== Focus Visible ===== */
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.feed-search-input:focus-visible,
+.feed-date-input:focus-visible,
+.modal-field input:focus-visible,
+.modal-field textarea:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(139, 115, 85, 0.15);
 }
 
 /* ===== Header ===== */
@@ -125,7 +148,6 @@ body {
     color: var(--text);
     font-size: 0.95rem;
     box-sizing: border-box;
-    outline: none;
     transition: border-color 0.2s;
 }
 
@@ -155,7 +177,6 @@ body {
     background: var(--card-bg);
     color: var(--text);
     font-size: 0.85rem;
-    outline: none;
     transition: border-color 0.2s;
 }
 
@@ -659,7 +680,6 @@ kbd {
     font-family: var(--font-serif);
     color: var(--text);
     background: var(--bg);
-    outline: none;
     transition: border-color 0.2s;
 }
 
@@ -752,12 +772,12 @@ kbd {
 
 .btn-danger {
     background: transparent;
-    color: #c0392b;
-    border: 1px solid #e8c4c0;
+    color: var(--danger);
+    border: 1px solid var(--danger-border);
 }
 
 .btn-danger:hover {
-    background: #fdf2f1;
+    background: var(--danger-bg);
 }
 
 /* ===== Loading Skeleton ===== */
@@ -849,7 +869,7 @@ kbd {
 .error-state {
     text-align: center;
     padding: 48px 24px;
-    color: #c0392b;
+    color: var(--danger);
 }
 
 .error-state p {
@@ -946,12 +966,12 @@ kbd {
 
 /* Error card for individual entry rendering failures */
 .error-card {
-    background: #fff8f8;
-    border: 2px dashed #e8c4c0;
+    background: var(--danger-bg-subtle);
+    border: 2px dashed var(--danger-border);
     border-radius: var(--radius);
     padding: 24px;
     margin-bottom: 16px;
-    color: #c0392b;
+    color: var(--danger);
 }
 
 .error-card-content {
@@ -1075,6 +1095,18 @@ kbd {
         padding: 12px 16px;
     }
 
+    #app-header h1 {
+        font-size: 1.1rem;
+    }
+
+    #app-header nav {
+        gap: 12px;
+    }
+
+    .nav-link {
+        font-size: 0.85rem;
+    }
+
     #app-content {
         padding: 20px 16px;
     }
@@ -1108,7 +1140,38 @@ kbd {
         padding: 12px 16px;
     }
 
+    .entry-tag {
+        padding: 5px 12px;
+        font-size: 0.8rem;
+    }
 
+    .btn-ghost {
+        padding: 8px 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    #app-header {
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+    }
+
+    #app-header nav {
+        width: 100%;
+        justify-content: space-between;
+    }
+}
+
+/* ===== View Transition ===== */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* ===== Selection Bar Overlap Fix ===== */
+.browse-container.has-selection-bar {
+    padding-bottom: 80px;
 }
 
 /* ===== Pagination controls ===== */
@@ -1185,8 +1248,8 @@ kbd {
 }
 
 .modal-asset-item:has(input:checked) {
-    border-color: #e05555;
-    outline: 2px solid #e05555;
+    border-color: var(--danger);
+    outline: 2px solid var(--danger);
 }
 
 .modal-asset-item img {
@@ -1217,13 +1280,13 @@ kbd {
 }
 
 .modal-inline-error {
-    color: #e05555;
+    color: var(--danger);
     font-size: 0.9rem;
     margin-bottom: 12px;
     padding: 8px 12px;
-    background: rgba(224, 85, 85, 0.1);
+    background: var(--danger-bg);
     border-radius: 6px;
-    border: 1px solid rgba(224, 85, 85, 0.3);
+    border: 1px solid var(--danger-border);
 }
 
 /* ===== Auto-sliding gallery styles ===== */
@@ -1236,21 +1299,22 @@ kbd {
 }
 
 .gallery-control {
-    background: rgba(255, 255, 255, 0.9);
-    border: none;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
     border-radius: 50%;
     width: 40px;
     height: 40px;
     font-size: 18px;
     cursor: pointer;
     transition: all 0.2s ease;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--card-shadow);
+    color: var(--text);
 }
 
 .gallery-control:hover {
-    background: white;
+    background: var(--bg);
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    border-color: var(--accent);
 }
 
 .gallery-control.hidden {
@@ -1274,9 +1338,9 @@ kbd {
     }
 
     .gallery-control {
-        width: 36px;
-        height: 36px;
-        font-size: 16px;
+        width: 44px;
+        height: 44px;
+        font-size: 18px;
     }
 }
 

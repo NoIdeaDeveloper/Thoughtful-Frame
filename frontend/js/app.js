@@ -23,6 +23,11 @@ function route() {
     const [path, query] = hash.slice(2).split("?", 2);
     const parts = path.split("/");
 
+    // Trigger fade-in animation on view change
+    contentEl.style.animation = "none";
+    contentEl.offsetHeight; // force reflow
+    contentEl.style.animation = "fadeIn 0.2s ease";
+
     if (parts[0] === "" || parts[0] === undefined) {
         renderFeed(contentEl);
     } else if (parts[0] === "browse") {

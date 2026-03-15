@@ -93,6 +93,7 @@ export function showEntryModal(assetIds, existingEntry = null, photoCreatedAt = 
         <div class="modal-field">
             <label for="modal-entry-body">Your thoughts</label>
             <textarea id="modal-entry-body" placeholder="Write about this moment...">${isEdit ? escapeHtml(existingEntry.body) : ""}</textarea>
+            <div id="modal-body-error" class="modal-inline-error hidden">Please write something before saving.</div>
         </div>
         <div class="modal-actions">
             <button class="btn btn-secondary" id="modal-cancel">Cancel</button>
@@ -101,6 +102,7 @@ export function showEntryModal(assetIds, existingEntry = null, photoCreatedAt = 
     `;
 
     overlay.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
 
     // Summary character count
     const summaryEl = document.getElementById("modal-entry-summary");
@@ -111,11 +113,12 @@ export function showEntryModal(assetIds, existingEntry = null, photoCreatedAt = 
         charCountEl.classList.toggle("at-limit", len >= SUMMARY_MAX);
     });
 
-    // Auto-resize main textarea
+    // Auto-resize main textarea and clear validation error
     const textarea = document.getElementById("modal-entry-body");
     textarea.addEventListener("input", () => {
         textarea.style.height = "auto";
         textarea.style.height = textarea.scrollHeight + "px";
+        document.getElementById("modal-body-error").classList.add("hidden");
     });
 
     // Focus the title field
@@ -172,6 +175,7 @@ export function showEntryModal(assetIds, existingEntry = null, photoCreatedAt = 
         const dateInput = document.getElementById("modal-entry-date").value;
 
         if (!body) {
+            document.getElementById("modal-body-error").classList.remove("hidden");
             document.getElementById("modal-entry-body").focus();
             return;
         }
@@ -239,6 +243,7 @@ export function showEntryPickerModal(assetId, entries) {
     `;
 
     overlay.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
 
     if (_overlayClickHandler) overlay.removeEventListener("click", _overlayClickHandler);
     _overlayClickHandler = (e) => { if (e.target === overlay) closeModal(); };
@@ -293,6 +298,7 @@ export function showReorderImagesModal(entryId, assetIds) {
     `;
 
     overlay.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
 
     if (_overlayClickHandler) overlay.removeEventListener("click", _overlayClickHandler);
     _overlayClickHandler = (e) => { if (e.target === overlay) closeModal(); };
@@ -355,6 +361,7 @@ export function showReorderImagesModal(entryId, assetIds) {
 export function closeModal() {
     overlay.classList.add("hidden");
     container.innerHTML = "";
+    document.body.style.overflow = "";
 
     if (_overlayClickHandler) {
         overlay.removeEventListener("click", _overlayClickHandler);

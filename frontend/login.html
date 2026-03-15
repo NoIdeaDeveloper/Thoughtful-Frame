@@ -15,21 +15,23 @@
             margin: 0;
         }
         .login-card {
-            background: var(--surface, #fff);
-            border: 1px solid var(--border, #e0e0e0);
+            background: var(--card-bg);
+            border: 1px solid var(--border);
             border-radius: 12px;
             padding: 2.5rem 2rem;
             width: 100%;
             max-width: 360px;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            box-shadow: var(--card-shadow);
         }
         .login-card h1 {
             margin: 0 0 0.25rem;
             font-size: 1.4rem;
+            color: var(--accent);
+            font-family: var(--font-serif);
         }
         .login-card p {
             margin: 0 0 1.5rem;
-            color: var(--text-muted, #666);
+            color: var(--text-muted);
             font-size: 0.9rem;
         }
         .login-card label {
@@ -37,15 +39,18 @@
             font-size: 0.85rem;
             font-weight: 600;
             margin-bottom: 0.4rem;
+            color: var(--text);
         }
         .login-card input[type="password"] {
             width: 100%;
             padding: 0.6rem 0.75rem;
             font-size: 1rem;
-            border: 1px solid var(--border, #e0e0e0);
+            border: 1px solid var(--border);
             border-radius: 6px;
             box-sizing: border-box;
             margin-bottom: 1rem;
+            background: var(--bg);
+            color: var(--text);
         }
         .login-card button {
             width: 100%;
@@ -55,7 +60,7 @@
             cursor: pointer;
             border-radius: 6px;
             border: none;
-            background: var(--accent, #4a90d9);
+            background: var(--accent);
             color: #fff;
         }
         .login-card button:disabled {
@@ -63,7 +68,7 @@
             cursor: default;
         }
         #error-msg {
-            color: var(--error, #d9534f);
+            color: var(--danger, #d9534f);
             font-size: 0.85rem;
             margin-top: 0.75rem;
             display: none;
@@ -71,6 +76,7 @@
     </style>
 </head>
 <body>
+    <script>document.documentElement.dataset.theme = localStorage.getItem("theme") || "dark";</script>
     <div class="login-card">
         <h1>Thoughtful Frame</h1>
         <p>Enter your password to continue.</p>

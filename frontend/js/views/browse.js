@@ -220,6 +220,7 @@ export async function renderBrowse(container) {
             document.body.appendChild(bar);
         }
 
+        document.querySelector(".browse-container")?.classList.add("has-selection-bar");
         const count = selectedAssetIds.length;
         bar.innerHTML = `
             <span class="selection-count">${count} photo${count !== 1 ? "s" : ""} selected</span>
@@ -303,6 +304,7 @@ export async function renderBrowse(container) {
 function removeSelectionBar() {
     const bar = document.querySelector(".selection-bar");
     if (bar) bar.remove();
+    document.querySelector(".browse-container")?.classList.remove("has-selection-bar");
 }
 
 function extractAssets(data) {
