@@ -1,5 +1,5 @@
 import { fetchEntry, deleteEntry, previewUrl, thumbnailUrl, removeAssetsFromEntry, fetchImmichConfig, getSettings } from "../api.js";
-import { formatDate, escapeHtml } from "../utils.js";
+import { formatDate, escapeHtml, renderMarkdown, wordStats } from "../utils.js";
 import { showEntryModal, closeModal } from "../components/modal.js";
 
 /**
@@ -244,7 +244,7 @@ export async function renderEntry(container, entryId) {
         if (isMulti) {
             photosHtml = `
                 <div class="entry-detail-photos multi">
-                    ${entry.immich_asset_ids.map((id) => photoWrapper(id)).join("")}
+                    ${entry.immich_asset_ids.map((id, i) => photoWrapper(id, i > 0)).join("")}
                 </div>
             `;
         } else {
@@ -265,8 +265,10 @@ export async function renderEntry(container, entryId) {
                 <div class="entry-detail-date">
                     ${formatDate(entry.created_at)}
                     ${entry.updated_at !== entry.created_at ? ` (edited ${formatDate(entry.updated_at)})` : ""}
+                    <span class="entry-reading-time">&middot; ${wordStats(entry.body).readingTime}</span>
                 </div>
-                <div class="entry-detail-body">${escapeHtml(entry.body)}</div>
+                ${entry.tags ? `<div class="entry-detail-tags">${entry.tags.split(",").map(t => t.trim()).filter(Boolean).map(t => `<a class="entry-tag" href="#/feed?tag=${encodeURIComponent(t)}">${escapeHtml(t)}</a>`).join("")}</div>` : ""}
+                <div class="entry-detail-body markdown-body">${renderMarkdown(entry.body)}</div>
                 <div class="entry-detail-actions">
                     <button class="btn btn-secondary" id="entry-edit">Edit</button>
                     <button class="btn btn-danger" id="entry-delete">Delete</button>

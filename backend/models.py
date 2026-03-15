@@ -7,6 +7,7 @@ class EntryCreate(BaseModel):
     title: str = ""
     summary: str = ""
     body: str
+    tags: str = ""  # Comma-separated tag list e.g. "travel,family"
     created_at: Optional[str] = None  # If provided, overrides the auto-generated timestamp
 
 
@@ -14,6 +15,7 @@ class EntryUpdate(BaseModel):
     title: Optional[str] = None
     summary: Optional[str] = None
     body: Optional[str] = None
+    tags: Optional[str] = None
     immich_asset_ids: Optional[list[str]] = None
     created_at: Optional[str] = None  # Allow backdating / changing the publish date
 
@@ -24,6 +26,7 @@ class EntryResponse(BaseModel):
     title: str
     summary: str
     body: str
+    tags: str
     created_at: str
     updated_at: str
 

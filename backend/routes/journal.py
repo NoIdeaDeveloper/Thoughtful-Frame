@@ -2,8 +2,9 @@ import json
 import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from backend.database import get_db
+from backend import backup as backup_module
 from backend.models import (
     EntryCreate,
     EntryUpdate,
@@ -42,8 +43,9 @@ async def _build_entry_response(db, entry_row) -> EntryResponse:
         id=entry_row["id"],
         immich_asset_ids=[r["immich_asset_id"] for r in asset_rows],
         title=entry_row["title"],
-        summary=entry_row["summary"] if "summary" in entry_row.keys() else "",
+        summary=entry_row["summary"],
         body=entry_row["body"],
+        tags=entry_row["tags"],
         created_at=entry_row["created_at"],
         updated_at=entry_row["updated_at"],
     )
@@ -68,8 +70,9 @@ async def _build_entries_response(db, entry_rows) -> list[EntryResponse]:
             id=r["id"],
             immich_asset_ids=assets_by_entry.get(r["id"], []),
             title=r["title"],
-            summary=r["summary"] if "summary" in r.keys() else "",
+            summary=r["summary"],
             body=r["body"],
+            tags=r["tags"],
             created_at=r["created_at"],
             updated_at=r["updated_at"],
         )
@@ -78,19 +81,40 @@ async def _build_entries_response(db, entry_rows) -> list[EntryResponse]:
 
 
 @router.get("/entries", response_model=EntryListResponse)
-async def list_entries(page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=200)):
-    logger.debug(f"Listing entries - page: {page}, page_size: {page_size}")
+async def list_entries(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=200),
+    date_from: str = Query(None, description="ISO date string (inclusive lower bound)"),
+    date_to: str = Query(None, description="ISO date string (inclusive upper bound)"),
+    tag: str = Query(None, description="Filter entries by tag"),
+):
+    logger.debug(f"Listing entries - page: {page}, page_size: {page_size}, date_from: {date_from}, date_to: {date_to}")
     db = get_db()
     try:
         offset = (page - 1) * page_size
 
-        cursor = await db.execute("SELECT COUNT(*) as cnt FROM journal_entries")
+        conditions = []
+        params: list = []
+        if date_from:
+            conditions.append("created_at >= ?")
+            params.append(date_from)
+        if date_to:
+            conditions.append("created_at <= ?")
+            params.append(date_to + "T23:59:59.999999Z")
+        if tag:
+            # Match tag as a whole comma-separated token
+            conditions.append("(',' || tags || ',') LIKE ?")
+            params.append(f"%,{tag},%")
+
+        where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+        cursor = await db.execute(f"SELECT COUNT(*) as cnt FROM journal_entries {where}", params)
         row = await cursor.fetchone()
         total = row["cnt"]
 
         cursor = await db.execute(
-            "SELECT * FROM journal_entries ORDER BY created_at DESC LIMIT ? OFFSET ?",
-            (page_size, offset),
+            f"SELECT * FROM journal_entries {where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            params + [page_size, offset],
         )
         entries = await cursor.fetchall()
 
@@ -137,17 +161,16 @@ async def create_entry(data: EntryCreate):
     try:
         # Start transaction
         cursor = await db.execute(
-            "INSERT INTO journal_entries (title, summary, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-            (data.title, data.summary, data.body, created_at, now),
+            "INSERT INTO journal_entries (title, summary, body, tags, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (data.title, data.summary, data.body, data.tags, created_at, now),
         )
         entry_id = cursor.lastrowid
 
         # Insert all assets using batch operation
-        if data.immich_asset_ids:
-            await db.executemany(
-                "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
-                [(entry_id, asset_id, position) for position, asset_id in enumerate(data.immich_asset_ids)]
-            )
+        await db.executemany(
+            "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
+            [(entry_id, asset_id, position) for position, asset_id in enumerate(data.immich_asset_ids)]
+        )
 
         # Commit transaction
         await db.commit()
@@ -182,13 +205,14 @@ async def update_entry(entry_id: int, data: EntryUpdate):
 
         now = datetime.now(timezone.utc).isoformat()
         new_title = data.title if data.title is not None else entry["title"]
-        new_summary = data.summary if data.summary is not None else (entry["summary"] if "summary" in entry.keys() else "")
+        new_summary = data.summary if data.summary is not None else entry["summary"]
         new_body = data.body if data.body is not None else entry["body"]
+        new_tags = data.tags if data.tags is not None else entry["tags"]
         new_created_at = data.created_at if data.created_at is not None else entry["created_at"]
 
         await db.execute(
-            "UPDATE journal_entries SET title = ?, summary = ?, body = ?, created_at = ?, updated_at = ? WHERE id = ?",
-            (new_title, new_summary, new_body, new_created_at, now, entry_id),
+            "UPDATE journal_entries SET title = ?, summary = ?, body = ?, tags = ?, created_at = ?, updated_at = ? WHERE id = ?",
+            (new_title, new_summary, new_body, new_tags, new_created_at, now, entry_id),
         )
 
         if data.immich_asset_ids is not None:
@@ -346,6 +370,64 @@ async def delete_entry(entry_id: int):
         raise HTTPException(status_code=500, detail="Failed to delete entry")
 
 
+@router.get("/tags")
+async def list_tags():
+    """Return all distinct tags used across journal entries."""
+    db = get_db()
+    try:
+        cursor = await db.execute(
+            "SELECT tags FROM journal_entries WHERE tags != ''"
+        )
+        rows = await cursor.fetchall()
+        tag_set: set[str] = set()
+        for row in rows:
+            for t in row["tags"].split(","):
+                t = t.strip()
+                if t:
+                    tag_set.add(t)
+        return {"tags": sorted(tag_set)}
+    except Exception as e:
+        logger.error(f"Failed to list tags: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to list tags")
+
+
+@router.get("/search", response_model=EntryListResponse)
+async def search_entries(
+    q: str = Query("", min_length=0),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=200),
+):
+    """Search journal entries by keyword across title, summary, and body."""
+    db = get_db()
+    try:
+        if not q.strip():
+            return await list_entries(page=page, page_size=page_size)
+
+        pattern = f"%{q}%"
+        offset = (page - 1) * page_size
+
+        cursor = await db.execute(
+            """SELECT COUNT(*) as cnt FROM journal_entries
+               WHERE title LIKE ? OR summary LIKE ? OR body LIKE ?""",
+            (pattern, pattern, pattern),
+        )
+        row = await cursor.fetchone()
+        total = row["cnt"]
+
+        cursor = await db.execute(
+            """SELECT * FROM journal_entries
+               WHERE title LIKE ? OR summary LIKE ? OR body LIKE ?
+               ORDER BY created_at DESC LIMIT ? OFFSET ?""",
+            (pattern, pattern, pattern, page_size, offset),
+        )
+        entries = await cursor.fetchall()
+        result = await _build_entries_response(db, entries)
+        return EntryListResponse(entries=result, total=total, page=page, page_size=page_size)
+    except Exception as e:
+        logger.error(f"Failed to search entries: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to search entries")
+
+
 @router.get("/entries/by-asset/{asset_id}", response_model=list[EntryResponse])
 async def get_entries_for_asset(asset_id: str):
     db = get_db()
@@ -418,6 +500,7 @@ async def export_journal():
                 "title": e.title,
                 "summary": e.summary,
                 "body": e.body,
+                "tags": e.tags,
                 "created_at": e.created_at,
                 "updated_at": e.updated_at,
                 "immich_asset_ids": e.immich_asset_ids,
@@ -434,6 +517,24 @@ async def export_journal():
         media_type="application/json",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/backups")
+async def list_backups():
+    """List all database backups."""
+    return {"backups": backup_module.list_backups()}
+
+
+@router.post("/backup")
+async def trigger_backup():
+    """Trigger an immediate database backup."""
+    import asyncio
+    try:
+        path = await asyncio.to_thread(backup_module.run_backup)
+        return {"ok": True, "backup_path": path}
+    except Exception as e:
+        logger.error(f"Backup failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Backup failed: {str(e)}")
 
 
 @router.post("/import")
@@ -455,6 +556,7 @@ async def import_journal(data: dict):
             title = entry.get("title", "")
             summary = entry.get("summary", "")
             body = entry.get("body", "")
+            tags = entry.get("tags", "")
             asset_ids = entry.get("immich_asset_ids", [])
             created_at = entry.get("created_at") or datetime.now(timezone.utc).isoformat()
             updated_at = entry.get("updated_at") or created_at
@@ -464,8 +566,8 @@ async def import_journal(data: dict):
                 continue
 
             cursor = await db.execute(
-                "INSERT INTO journal_entries (title, summary, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-                (title, summary, body, created_at, updated_at),
+                "INSERT INTO journal_entries (title, summary, body, tags, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (title, summary, body, tags, created_at, updated_at),
             )
             entry_id = cursor.lastrowid
 
@@ -474,10 +576,14 @@ async def import_journal(data: dict):
                 [(entry_id, asset_id, position) for position, asset_id in enumerate(asset_ids)]
             )
 
-            await db.commit()
             imported += 1
         except Exception as e:
-            await db.rollback()
             errors.append(f"Entry {i}: {str(e)}")
+
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        return {"imported": 0, "errors": [f"Failed to commit: {str(e)}"]}
 
     return {"imported": imported, "errors": errors}

@@ -105,8 +105,75 @@ body {
 .feed-header {
     font-family: var(--font-serif);
     font-size: 1.8rem;
-    margin-bottom: 32px;
+    margin-bottom: 16px;
     color: var(--text);
+}
+
+.feed-filters {
+    margin-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.feed-search-input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    font-size: 0.95rem;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.feed-search-input:focus {
+    border-color: var(--accent);
+}
+
+.feed-date-filters {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.feed-date-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.feed-date-input {
+    padding: 6px 10px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.feed-date-input:focus {
+    border-color: var(--accent);
+}
+
+.btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    padding: 5px 10px;
+}
+
+.btn-ghost:hover {
+    color: var(--text);
+    border-color: var(--text-muted);
 }
 
 .feed-entries {
@@ -167,6 +234,33 @@ body {
     overflow: hidden;
 }
 
+.entry-card-tags, .entry-detail-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.entry-tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.75rem;
+    text-decoration: none;
+    opacity: 0.85;
+    transition: opacity 0.15s;
+}
+
+.entry-tag:hover {
+    opacity: 1;
+}
+
+.entry-detail-tags {
+    margin-bottom: 16px;
+}
+
 .entry-card-meta {
     display: flex;
     flex-wrap: wrap;
@@ -181,6 +275,12 @@ body {
 }
 
 .entry-card-edited {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+.entry-reading-time {
     font-size: 0.75rem;
     color: var(--text-muted);
     opacity: 0.7;
@@ -395,15 +495,99 @@ body {
     font-family: var(--font-serif);
     font-size: 1.1rem;
     line-height: 1.8;
-    white-space: pre-wrap;
     margin-bottom: 32px;
 }
+
+.markdown-body p { margin: 0 0 1em; }
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+    font-family: var(--font-serif);
+    margin: 1.2em 0 0.4em;
+    line-height: 1.3;
+}
+.markdown-body h1 { font-size: 1.6rem; }
+.markdown-body h2 { font-size: 1.3rem; }
+.markdown-body h3 { font-size: 1.1rem; }
+.markdown-body ul { padding-left: 1.5em; margin: 0 0 1em; }
+.markdown-body li { margin-bottom: 0.25em; }
+.markdown-body code {
+    background: var(--bg);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: monospace;
+}
+.markdown-body pre {
+    background: var(--bg);
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    overflow-x: auto;
+    margin: 0 0 1em;
+}
+.markdown-body pre code {
+    background: none;
+    padding: 0;
+    font-size: 0.9rem;
+}
+.markdown-body a { color: var(--accent); }
+.markdown-body hr { border: none; border-top: 1px solid var(--border); margin: 1.5em 0; }
+.markdown-body strong { font-weight: 700; }
+.markdown-body em { font-style: italic; }
 
 .entry-detail-actions {
     display: flex;
     gap: 12px;
     padding-top: 16px;
     border-top: 1px solid var(--border);
+}
+
+/* ===== Keyboard Shortcut Help ===== */
+#shortcut-help-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+}
+
+.shortcut-help-box {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    min-width: 320px;
+    box-shadow: var(--card-shadow);
+}
+
+.shortcut-help-box h3 {
+    margin: 0 0 16px;
+    font-family: var(--font-serif);
+}
+
+.shortcut-table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.shortcut-table td {
+    padding: 6px 8px;
+    font-size: 0.9rem;
+    color: var(--text);
+}
+
+.shortcut-table td:first-child {
+    white-space: nowrap;
+}
+
+kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    font-size: 0.8rem;
+    font-family: monospace;
+    color: var(--text);
 }
 
 /* ===== Modal ===== */

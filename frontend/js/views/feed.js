@@ -1,24 +1,32 @@
-import { fetchEntries } from "../api.js";
+import { fetchEntries, searchEntries } from "../api.js";
 import { renderEntryCard } from "../components/entryCard.js";
 import { escapeHtml } from "../utils.js";
 
-/**
- * Renders the journal feed with all entries
- * 
- * @param {HTMLElement} container - The DOM container to render the feed into
- * 
- * @description
- * Fetches journal entries from the API and renders them in a scrollable feed.
- * Implements pagination with a "Load more" button for performance.
- * Handles various error states and edge cases (empty feed, API errors, etc.).
- * 
- * @returns {Promise<void>} Resolves when rendering is complete
- */
 export async function renderFeed(container) {
-    // Set up the feed container with skeleton loading state
+    // Parse optional tag filter from URL hash e.g. #/feed?tag=travel
+    const hashQuery = window.location.hash.includes("?")
+        ? window.location.hash.slice(window.location.hash.indexOf("?") + 1)
+        : "";
+    const urlParams = new URLSearchParams(hashQuery);
+    const initialTag = urlParams.get("tag") || "";
+
     container.innerHTML = `
         <div class="feed-container">
             <h2 class="feed-header">My Journal</h2>
+            <div class="feed-filters">
+                <input
+                    type="search"
+                    id="feed-search"
+                    class="feed-search-input"
+                    placeholder="Search entries…"
+                    autocomplete="off"
+                >
+                <div class="feed-date-filters">
+                    <label class="feed-date-label">From <input type="date" id="feed-date-from" class="feed-date-input"></label>
+                    <label class="feed-date-label">To <input type="date" id="feed-date-to" class="feed-date-input"></label>
+                    <button class="btn btn-small btn-ghost" id="feed-clear-filters" style="display:none">Clear filters</button>
+                </div>
+            </div>
             <div class="feed-entries" id="feed-entries">
                 ${skeletonCards(3)}
             </div>
@@ -30,113 +38,165 @@ export async function renderFeed(container) {
 
     let currentPage = 1;
     const pageSize = 20;
+    let currentQuery = "";
+    let currentDateFrom = "";
+    let currentDateTo = "";
+    let currentTag = initialTag;
+
     const entriesEl = document.getElementById("feed-entries");
     const loadMoreEl = document.getElementById("feed-load-more");
+    const searchInput = document.getElementById("feed-search");
+    const dateFromInput = document.getElementById("feed-date-from");
+    const dateToInput = document.getElementById("feed-date-to");
+    const clearBtn = document.getElementById("feed-clear-filters");
 
-    try {
-        const data = await fetchEntries(currentPage, pageSize);
+    function updateClearButton() {
+        const hasFilters = currentQuery.trim() || currentDateFrom || currentDateTo || currentTag;
+        clearBtn.style.display = hasFilters ? "inline-block" : "none";
+    }
 
-        entriesEl.innerHTML = "";
-
-        // Handle various API response formats
-        if (!data) {
-            console.error("No data received from API");
-            entriesEl.innerHTML = `
-                <div class="error-state">
-                    <p>No data received from server.</p>
-                    <p>Please check your connection.</p>
-                </div>
-            `;
-            return;
+    async function loadPage(page) {
+        if (currentQuery.trim()) {
+            return searchEntries(currentQuery, page, pageSize);
         }
+        return fetchEntries(page, pageSize, {
+            dateFrom: currentDateFrom || undefined,
+            dateTo: currentDateTo || undefined,
+            tag: currentTag || undefined,
+        });
+    }
 
-        // Check if response has expected structure
-        if (!data.entries || !Array.isArray(data.entries)) {
-            console.error("Invalid API response structure:", data);
-            entriesEl.innerHTML = `
-                <div class="error-state">
-                    <p>Received unexpected data format from server.</p>
-                </div>
-            `;
-            return;
-        }
+    async function renderFirstPage() {
+        currentPage = 1;
+        entriesEl.innerHTML = skeletonCards(3);
+        loadMoreEl.classList.add("hidden");
+        updateClearButton();
 
-        if (data.entries.length === 0) {
-            entriesEl.innerHTML = `
-                <div class="empty-state">
-                    <h2>Your journal is empty</h2>
-                    <p>Browse your photos to start writing about your memories.</p>
-                    <a href="#/browse" class="btn btn-primary">Browse Photos</a>
-                </div>
-            `;
-            
-            document.title = "Journal Empty - Thoughtful Frame";
-            
-            return;
-        }
+        try {
+            const data = await loadPage(1);
+            entriesEl.innerHTML = "";
 
-        for (const entry of data.entries) {
-            try {
-                const card = renderEntryCard(entry);
-                entriesEl.appendChild(card);
-            } catch (renderError) {
-                console.error(`Failed to render entry ${entry.id}:`, renderError);
-                // Skip this entry but continue with others
-                continue;
+            if (!data || !data.entries || !Array.isArray(data.entries)) {
+                entriesEl.innerHTML = `<div class="error-state"><p>Received unexpected data from server.</p></div>`;
+                return;
             }
-        }
 
-        if (data.total > currentPage * pageSize) {
-            loadMoreEl.classList.remove("hidden");
-        }
-
-        const btn = loadMoreEl.querySelector("button");
-        btn.addEventListener("click", async () => {
-            currentPage++;
-            btn.innerHTML = `Loading… <span class="spinner"></span>`;
-            btn.disabled = true;
-
-            try {
-                const moreData = await fetchEntries(currentPage, pageSize);
-                for (const entry of moreData.entries) {
-                    entriesEl.appendChild(renderEntryCard(entry));
-                }
-
-                if (moreData.total <= currentPage * pageSize) {
-                    loadMoreEl.innerHTML = `<p class="all-caught-up">✓ You're all caught up</p>`;
+            if (data.entries.length === 0) {
+                const hasFilters = currentQuery.trim() || currentDateFrom || currentDateTo;
+                if (hasFilters) {
+                    entriesEl.innerHTML = `
+                        <div class="empty-state">
+                            <h2>No entries match your filters</h2>
+                            <p>Try different keywords or date range.</p>
+                        </div>
+                    `;
                 } else {
-                    btn.textContent = "Load more";
-                    btn.disabled = false;
+                    entriesEl.innerHTML = `
+                        <div class="empty-state">
+                            <h2>Your journal is empty</h2>
+                            <p>Browse your photos to start writing about your memories.</p>
+                            <a href="#/browse" class="btn btn-primary">Browse Photos</a>
+                        </div>
+                    `;
+                    document.title = "Journal Empty - Thoughtful Frame";
                 }
-            } catch (err) {
+                return;
+            }
+
+            for (const entry of data.entries) {
+                try {
+                    entriesEl.appendChild(renderEntryCard(entry));
+                } catch (renderError) {
+                    console.error(`Failed to render entry ${entry.id}:`, renderError);
+                }
+            }
+
+            if (data.total > currentPage * pageSize) {
+                loadMoreEl.classList.remove("hidden");
+                const btn = loadMoreEl.querySelector("button");
                 btn.textContent = "Load more";
                 btn.disabled = false;
             }
-        });
-    } catch (err) {
-        console.error("Failed to load journal entries:", err);
-        entriesEl.innerHTML = `
-            <div class="error-state">
-                <p>Could not load journal entries.</p>
-                <p>${escapeHtml(err.message)}</p>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 16px;">
-                    Please check your connection and try refreshing the page.
-                </p>
-            </div>
-        `;
+        } catch (err) {
+            console.error("Failed to load journal entries:", err);
+            entriesEl.innerHTML = `
+                <div class="error-state">
+                    <p>Could not load journal entries.</p>
+                    <p>${escapeHtml(err.message)}</p>
+                </div>
+            `;
+        }
     }
+
+    await renderFirstPage();
+
+    // Load more
+    const loadMoreBtn = loadMoreEl.querySelector("button");
+    loadMoreBtn.addEventListener("click", async () => {
+        currentPage++;
+        loadMoreBtn.innerHTML = `Loading… <span class="spinner"></span>`;
+        loadMoreBtn.disabled = true;
+        try {
+            const moreData = await loadPage(currentPage);
+            for (const entry of moreData.entries) {
+                entriesEl.appendChild(renderEntryCard(entry));
+            }
+            if (moreData.total <= currentPage * pageSize) {
+                loadMoreEl.innerHTML = `<p class="all-caught-up">✓ You're all caught up</p>`;
+            } else {
+                loadMoreBtn.textContent = "Load more";
+                loadMoreBtn.disabled = false;
+            }
+        } catch (err) {
+            loadMoreBtn.textContent = "Load more";
+            loadMoreBtn.disabled = false;
+        }
+    });
+
+    // Debounced search
+    let debounceTimer = null;
+    searchInput.addEventListener("input", () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            currentQuery = searchInput.value;
+            currentTag = "";
+            renderFirstPage();
+        }, 300);
+    });
+
+    // Date filters
+    dateFromInput.addEventListener("change", () => {
+        currentQuery = "";
+        currentTag = "";
+        searchInput.value = "";
+        currentDateFrom = dateFromInput.value;
+        renderFirstPage();
+    });
+    dateToInput.addEventListener("change", () => {
+        currentQuery = "";
+        currentTag = "";
+        searchInput.value = "";
+        currentDateTo = dateToInput.value;
+        renderFirstPage();
+    });
+
+    // If there's an initial tag filter, show the clear button
+    if (initialTag) updateClearButton();
+
+    // Clear filters
+    clearBtn.addEventListener("click", () => {
+        currentQuery = "";
+        currentDateFrom = "";
+        currentDateTo = "";
+        currentTag = "";
+        searchInput.value = "";
+        dateFromInput.value = "";
+        dateToInput.value = "";
+        window.history.replaceState(null, "", "#/");
+        renderFirstPage();
+    });
 }
 
-/**
- * Generates skeleton loading cards for the feed
- * 
- * @param {number} count - Number of skeleton cards to generate
- * @returns {string} HTML string containing skeleton loading cards
- * 
- * @description
- * Creates placeholder skeleton cards that are shown while content is loading.
- * Provides a better user experience by showing visual feedback during async operations.
- */
 function skeletonCards(count) {
     return Array.from({ length: count })
         .map(

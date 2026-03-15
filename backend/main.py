@@ -1,5 +1,7 @@
+import asyncio
 import logging
 import os
+import time
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -10,7 +12,8 @@ from backend.routes import journal, immich_proxy, settings
 from backend.routes import auth as auth_routes
 from backend import immich_client
 from backend.auth import require_auth
-from backend.config import APP_PASSWORD
+from backend.config import APP_PASSWORD, DATABASE_PATH
+from backend.backup import schedule_daily_backups, list_backups
 
 # Configure logging before any class definitions that use logger
 logging.basicConfig(
@@ -53,7 +56,9 @@ async def lifespan(app: FastAPI):
     logger.debug("Initializing database schema...")
     await init_db()
     logger.info("Database initialized successfully")
+    backup_task = asyncio.create_task(schedule_daily_backups())
     yield
+    backup_task.cancel()
     logger.info("Application shutting down...")
     logger.debug("Closing database connection...")
     await close_db()
@@ -72,7 +77,7 @@ async def auth_middleware(request: Request, call_next):
     if APP_PASSWORD and request.url.path.startswith("/api/"):
         if not any(request.url.path.startswith(p) for p in UNPROTECTED_PREFIXES):
             try:
-                require_auth(request)
+                await require_auth(request)
             except Exception:
                 return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
     return await call_next(request)
@@ -87,16 +92,31 @@ app.include_router(settings.router, prefix="/api")
 async def health_check():
     logger.info("Health check endpoint called")
     status = {"database": "ok", "immich": "ok"}
+    details: dict = {}
 
     try:
         db = get_db()
         await db.execute("SELECT 1")
+        # Entry count
+        cursor = await db.execute("SELECT COUNT(*) as cnt FROM journal_entries")
+        row = await cursor.fetchone()
+        details["entry_count"] = row["cnt"]
+        # Session count
+        cursor = await db.execute("SELECT COUNT(*) as cnt FROM sessions WHERE expires_at > ?", (time.time(),))
+        row = await cursor.fetchone()
+        details["active_sessions"] = row["cnt"]
+        # DB file size
+        if os.path.exists(DATABASE_PATH):
+            details["db_size_bytes"] = os.path.getsize(DATABASE_PATH)
     except Exception as e:
         status["database"] = f"error: {e}"
         logger.error(f"Database health check failed: {e}", exc_info=True)
 
+    # Immich latency
     try:
+        t0 = time.monotonic()
         await immich_client.get_assets(page=1, page_size=1)
+        details["immich_latency_ms"] = round((time.monotonic() - t0) * 1000)
     except httpx.ConnectError:
         status["immich"] = "error: cannot reach Immich server"
         logger.error("Immich health check failed: cannot reach Immich server")
@@ -104,8 +124,11 @@ async def health_check():
         status["immich"] = f"error: {e}"
         logger.error(f"Immich health check failed: {e}")
 
+    # Backup count
+    details["backup_count"] = len(list_backups())
+
     healthy = all(v == "ok" for v in status.values())
-    return {"healthy": healthy, **status}
+    return {"healthy": healthy, **status, **details}
 
 
 # Mount static files with proper cache control

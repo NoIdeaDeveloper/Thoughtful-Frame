@@ -38,9 +38,9 @@ function dateInputToISO(dateStr) {
     return d.toISOString();
 }
 
-export function showEntryModal(assetIds, existingEntry = null) {
+export function showEntryModal(assetIds, existingEntry = null, photoCreatedAt = null) {
     const isEdit = existingEntry !== null;
-    const todayISO = toDateInputValue(existingEntry?.created_at || null);
+    const todayISO = toDateInputValue(existingEntry?.created_at || photoCreatedAt || null);
 
     container.innerHTML = `
         <h2 class="modal-title">${isEdit ? "Edit Entry" : "New Journal Entry"}</h2>
@@ -70,6 +70,14 @@ export function showEntryModal(assetIds, existingEntry = null) {
         </div>
         ` : ''}
 
+        <div class="modal-field">
+            <label for="modal-entry-tags">
+                Tags
+                <span class="modal-field-hint">(comma-separated, e.g. travel, family)</span>
+            </label>
+            <input type="text" id="modal-entry-tags" placeholder="travel, family, vacation..."
+                   value="${isEdit ? escapeAttr(existingEntry.tags || "") : ""}">
+        </div>
         <div class="modal-field">
             <label for="modal-entry-summary">
                 Summary
@@ -158,6 +166,7 @@ export function showEntryModal(assetIds, existingEntry = null) {
     // Save
     document.getElementById("modal-save").addEventListener("click", async () => {
         const title = document.getElementById("modal-entry-title").value.trim();
+        const tags = document.getElementById("modal-entry-tags").value.trim();
         const summary = document.getElementById("modal-entry-summary").value.trim();
         const body = document.getElementById("modal-entry-body").value.trim();
         const dateInput = document.getElementById("modal-entry-date").value;
@@ -176,6 +185,7 @@ export function showEntryModal(assetIds, existingEntry = null) {
             if (isEdit) {
                 entry = await updateEntry(existingEntry.id, {
                     title,
+                    tags,
                     summary,
                     body,
                     immich_asset_ids: assetIds,
@@ -185,6 +195,7 @@ export function showEntryModal(assetIds, existingEntry = null) {
                 entry = await createEntry({
                     immich_asset_ids: assetIds,
                     title,
+                    tags,
                     summary,
                     body,
                     created_at: dateInput ? dateInputToISO(dateInput) : undefined,

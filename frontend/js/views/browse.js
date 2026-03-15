@@ -286,7 +286,7 @@ export async function renderBrowse(container) {
                     try {
                         const entries = await fetchEntriesForAsset(assetId);
                         if (entries.length === 0) {
-                            showEntryModal([assetId]);
+                            showEntryModal([assetId], null, item.dataset.fileCreatedAt || null);
                         } else if (entries.length === 1) {
                             window.location.hash = `#/entry/${entries[0].id}`;
                         } else {

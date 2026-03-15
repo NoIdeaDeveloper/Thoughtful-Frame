@@ -1,6 +1,8 @@
-import sqlite3
+import logging
 import aiosqlite
 from backend.config import DATABASE_PATH
+
+logger = logging.getLogger(__name__)
 
 _db: aiosqlite.Connection | None = None
 
@@ -29,8 +31,17 @@ def get_db() -> aiosqlite.Connection:
     return _db
 
 
-async def init_db():
-    db = get_db()
+# ---------------------------------------------------------------------------
+# Schema baseline — always created on first run via CREATE TABLE IF NOT EXISTS
+# ---------------------------------------------------------------------------
+
+async def _create_baseline(db: aiosqlite.Connection) -> None:
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    """)
     await db.execute("""
         CREATE TABLE IF NOT EXISTS journal_entries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,6 +62,12 @@ async def init_db():
         )
     """)
     await db.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            token TEXT PRIMARY KEY,
+            expires_at REAL NOT NULL
+        )
+    """)
+    await db.execute("""
         CREATE INDEX IF NOT EXISTS idx_entries_created_at
         ON journal_entries(created_at DESC)
     """)
@@ -62,17 +79,67 @@ async def init_db():
         CREATE INDEX IF NOT EXISTS idx_entry_assets_asset_id
         ON entry_assets(immich_asset_id)
     """)
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL
-        )
-    """)
-    # Migrations: add columns to existing databases
-    try:
-        await db.execute("ALTER TABLE journal_entries ADD COLUMN summary TEXT NOT NULL DEFAULT ''")
-        await db.commit()
-    except sqlite3.OperationalError:
-        pass  # Column already exists
-
     await db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Versioned migrations — each entry runs exactly once, in order.
+# Add new migrations to the END of this list only.
+# ---------------------------------------------------------------------------
+
+async def _m001_add_summary(db: aiosqlite.Connection) -> None:
+    await db.execute("ALTER TABLE journal_entries ADD COLUMN summary TEXT NOT NULL DEFAULT ''")
+
+
+async def _m002_add_tags(db: aiosqlite.Connection) -> None:
+    await db.execute("ALTER TABLE journal_entries ADD COLUMN tags TEXT NOT NULL DEFAULT ''")
+
+
+MIGRATIONS: list[tuple[int, str, object]] = [
+    (1, "add summary column", _m001_add_summary),
+    (2, "add tags column", _m002_add_tags),
+]
+
+
+async def _get_schema_version(db: aiosqlite.Connection) -> int:
+    cursor = await db.execute("SELECT value FROM settings WHERE key = 'schema_version'")
+    row = await cursor.fetchone()
+    return int(row["value"]) if row else 0
+
+
+async def _set_schema_version(db: aiosqlite.Connection, version: int) -> None:
+    await db.execute(
+        "INSERT INTO settings (key, value) VALUES ('schema_version', ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (str(version),),
+    )
+    await db.commit()
+
+
+async def _run_migrations(db: aiosqlite.Connection) -> None:
+    current = await _get_schema_version(db)
+    for version, description, migration_fn in MIGRATIONS:
+        if version <= current:
+            continue
+        logger.info(f"Running migration {version}: {description}")
+        try:
+            await migration_fn(db)
+            await db.commit()
+            await _set_schema_version(db, version)
+            logger.info(f"Migration {version} complete")
+        except Exception as e:
+            await db.rollback()
+            # If the column already exists (fresh DB where baseline already has it),
+            # just advance the version and continue.
+            if "duplicate column" in str(e).lower() or "already exists" in str(e).lower():
+                logger.debug(f"Migration {version} skipped (already applied): {e}")
+                await _set_schema_version(db, version)
+            else:
+                logger.error(f"Migration {version} failed: {e}", exc_info=True)
+                raise
+
+
+async def init_db():
+    db = get_db()
+    await _create_baseline(db)
+    await _run_migrations(db)

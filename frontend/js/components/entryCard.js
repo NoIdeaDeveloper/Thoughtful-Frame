@@ -1,5 +1,5 @@
 import { thumbnailUrl } from "../api.js";
-import { formatDate, escapeHtml } from "../utils.js";
+import { formatDate, escapeHtml, wordStats } from "../utils.js";
 
 export function renderEntryCard(entry) {
     if (!entry || !entry.id || !entry.immich_asset_ids || !Array.isArray(entry.immich_asset_ids) || entry.immich_asset_ids.length === 0) {
@@ -20,15 +20,22 @@ export function renderEntryCard(entry) {
     const safeSummary = entry.summary || "";
     const safeCreatedAt = entry.created_at || new Date().toISOString();
     const wasEdited = entry.updated_at && entry.updated_at !== entry.created_at;
+    const tags = entry.tags ? entry.tags.split(",").map(t => t.trim()).filter(Boolean) : [];
 
     // Show summary if provided, otherwise fall back to truncated body
     const previewText = safeSummary
         ? escapeHtml(safeSummary)
         : escapeHtml(truncate(safeBody, 200));
 
+    const tagsHtml = tags.length
+        ? `<div class="entry-card-tags">${tags.map(t => `<a class="entry-tag" href="#/feed?tag=${encodeURIComponent(t)}">${escapeHtml(t)}</a>`).join("")}</div>`
+        : "";
+
+    const { readingTime } = wordStats(safeBody);
     const dateHtml = `
         <span class="entry-card-date">${formatDate(safeCreatedAt)}</span>
         ${wasEdited ? `<span class="entry-card-edited">edited ${formatDate(entry.updated_at)}</span>` : ""}
+        <span class="entry-reading-time">${readingTime}</span>
     `;
 
     if (isMulti) {
@@ -41,6 +48,7 @@ export function renderEntryCard(entry) {
             <div class="entry-card-body">
                 ${safeTitle ? `<h3 class="entry-card-title">${escapeHtml(safeTitle)}</h3>` : ""}
                 <p class="entry-card-text">${previewText}</p>
+                ${tagsHtml}
                 <div class="entry-card-meta">${dateHtml}</div>
             </div>
         `;
@@ -51,6 +59,7 @@ export function renderEntryCard(entry) {
             <div class="entry-card-body">
                 ${safeTitle ? `<h3 class="entry-card-title">${escapeHtml(safeTitle)}</h3>` : ""}
                 <p class="entry-card-text">${previewText}</p>
+                ${tagsHtml}
                 <div class="entry-card-meta">${dateHtml}</div>
             </div>
         `;

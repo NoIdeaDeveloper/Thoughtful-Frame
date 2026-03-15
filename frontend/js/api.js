@@ -33,8 +33,25 @@ export function previewUrl(assetId) {
     return `${API_BASE}/immich/assets/${assetId}/preview`;
 }
 
-export async function fetchEntries(page = 1, pageSize = 20) {
-    const res = await apiFetch(`${API_BASE}/journal/entries?page=${page}&page_size=${pageSize}`);
+export async function fetchEntries(page = 1, pageSize = 20, { dateFrom, dateTo, tag } = {}) {
+    const params = new URLSearchParams({ page, page_size: pageSize });
+    if (dateFrom) params.set("date_from", dateFrom);
+    if (dateTo) params.set("date_to", dateTo);
+    if (tag) params.set("tag", tag);
+    const res = await apiFetch(`${API_BASE}/journal/entries?${params}`);
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+}
+
+export async function searchEntries(q, page = 1, pageSize = 20) {
+    const params = new URLSearchParams({ q, page, page_size: pageSize });
+    const res = await apiFetch(`${API_BASE}/journal/search?${params}`);
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+}
+
+export async function fetchTags() {
+    const res = await apiFetch(`${API_BASE}/journal/tags`);
     if (!res.ok) throw new Error(await res.text());
     return res.json();
 }
