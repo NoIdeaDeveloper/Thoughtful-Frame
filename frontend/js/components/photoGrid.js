@@ -1,4 +1,5 @@
 import { thumbnailUrl } from "../api.js";
+import { formatDate } from "../utils.js";
 
 function escapeAttr(str) {
     return String(str)
@@ -17,8 +18,20 @@ function escapeAttr(str) {
  */
 export function renderPhotoGrid(assets, assetsWithEntries, alreadyInEntry = new Set()) {
     const fragment = document.createDocumentFragment();
+    let currentDate = null;
+    const dateCache = {};
 
     for (const asset of assets) {
+        const dayKey = asset.fileCreatedAt ? asset.fileCreatedAt.slice(0, 10) : null;
+        const assetDate = dayKey ? (dateCache[dayKey] ??= formatDate(asset.fileCreatedAt)) : null;
+        if (assetDate && assetDate !== currentDate) {
+            const header = document.createElement("div");
+            header.className = "date-group-header";
+            header.textContent = assetDate;
+            fragment.appendChild(header);
+            currentDate = assetDate;
+        }
+
         const item = document.createElement("div");
         const isAlreadyAdded = alreadyInEntry.has(asset.id);
         const hasEntry = assetsWithEntries.has(asset.id);

@@ -43,59 +43,56 @@ export function showEntryModal(assetIds, existingEntry = null, photoCreatedAt = 
     const todayISO = toDateInputValue(existingEntry?.created_at || photoCreatedAt || null);
 
     container.innerHTML = `
-        <h2 class="modal-title">${isEdit ? "Edit Entry" : "New Journal Entry"}</h2>
+        <h2 class="modal-title">${isEdit ? "Edit Entry" : "Write"}</h2>
         <div class="modal-photos">
             ${assetIds.map((id) => `<img src="${thumbnailUrl(id)}" alt="Photo">`).join("")}
         </div>
-        <div class="modal-field">
-            <label for="modal-entry-title">Title (optional)</label>
-            <input type="text" id="modal-entry-title" placeholder="Give this memory a title..."
-                   value="${isEdit ? escapeAttr(existingEntry.title) : ""}">
-        </div>
-        <div class="modal-field">
-            <label for="modal-entry-date">Date</label>
-            <input type="date" id="modal-entry-date" value="${todayISO}">
-        </div>
-
-        ${isEdit ? `
-        <div class="modal-field">
-            <label>Manage Images</label>
-            <div class="modal-image-actions">
-                <button class="btn btn-secondary" id="modal-add-images">Add Images</button>
-                ${existingEntry.immich_asset_ids.length > 1 ? `
-                    <button class="btn btn-secondary" id="modal-remove-images">Remove Images</button>
-                    <button class="btn btn-secondary" id="modal-reorder-images">Reorder Images</button>
-                ` : ''}
-            </div>
-        </div>
-        ` : ''}
-
-        <div class="modal-field">
-            <label for="modal-entry-tags">
-                Tags
-                <span class="modal-field-hint">(comma-separated, e.g. travel, family)</span>
-            </label>
-            <input type="text" id="modal-entry-tags" placeholder="travel, family, vacation..."
-                   value="${isEdit ? escapeAttr(existingEntry.tags || "") : ""}">
-        </div>
-        <div class="modal-field">
-            <label for="modal-entry-summary">
-                Summary
-                <span class="modal-field-hint">(shown on journal card)</span>
-            </label>
-            <textarea id="modal-entry-summary" class="modal-summary-input"
-                      placeholder="A short summary shown on your journal feed..."
-                      maxlength="${SUMMARY_MAX}">${isEdit ? escapeHtml(existingEntry.summary || "") : ""}</textarea>
-            <div class="summary-char-count">
-                <span id="summary-char-current">${isEdit ? (existingEntry.summary || "").length : 0}</span> / ${SUMMARY_MAX} characters
-            </div>
-        </div>
-        <div class="modal-field">
-            <label for="modal-entry-body">Your thoughts</label>
-            <textarea id="modal-entry-body" placeholder="Write about this moment...">${isEdit ? escapeHtml(existingEntry.body) : ""}</textarea>
+        <div class="modal-field modal-field-body">
+            <textarea id="modal-entry-body" class="modal-body-textarea" placeholder="Write about this moment...">${isEdit ? escapeHtml(existingEntry.body) : ""}</textarea>
             <div id="modal-body-error" class="modal-inline-error hidden">Please write something before saving.</div>
         </div>
+        <div class="modal-secondary-fields">
+            <div class="modal-field">
+                <label for="modal-entry-title">Title <span class="modal-field-hint">(optional)</span></label>
+                <input type="text" id="modal-entry-title" placeholder="Give this memory a title..."
+                       value="${isEdit ? escapeAttr(existingEntry.title) : ""}">
+            </div>
+            <div class="modal-field">
+                <label for="modal-entry-date">Date</label>
+                <input type="date" id="modal-entry-date" value="${todayISO}">
+            </div>
+            <div class="modal-field">
+                <label for="modal-entry-tags">Tags <span class="modal-field-hint">(comma-separated)</span></label>
+                <input type="text" id="modal-entry-tags" placeholder="travel, family, vacation..."
+                       value="${isEdit ? escapeAttr(existingEntry.tags || "") : ""}">
+            </div>
+            ${isEdit ? `
+            <div class="modal-field">
+                <label for="modal-entry-summary">
+                    Summary
+                    <span class="modal-field-hint">(shown on journal card)</span>
+                </label>
+                <textarea id="modal-entry-summary" class="modal-summary-input"
+                          placeholder="A short summary shown on your journal feed..."
+                          maxlength="${SUMMARY_MAX}">${escapeHtml(existingEntry.summary || "")}</textarea>
+                <div class="summary-char-count">
+                    <span id="summary-char-current">${(existingEntry.summary || "").length}</span> / ${SUMMARY_MAX} characters
+                </div>
+            </div>
+            <div class="modal-field">
+                <label>Manage Images</label>
+                <div class="modal-image-actions">
+                    <button class="btn btn-secondary" id="modal-add-images">Add Images</button>
+                    ${existingEntry.immich_asset_ids.length > 1 ? `
+                        <button class="btn btn-secondary" id="modal-remove-images">Remove Images</button>
+                        <button class="btn btn-secondary" id="modal-reorder-images">Reorder Images</button>
+                    ` : ''}
+                </div>
+            </div>
+            ` : ''}
+        </div>
         <div class="modal-actions">
+            <div id="modal-save-error" class="modal-inline-error hidden"></div>
             <button class="btn btn-secondary" id="modal-cancel">Cancel</button>
             <button class="btn btn-primary" id="modal-save">${isEdit ? "Save Changes" : "Save Entry"}</button>
         </div>
@@ -104,14 +101,16 @@ export function showEntryModal(assetIds, existingEntry = null, photoCreatedAt = 
     overlay.classList.remove("hidden");
     document.body.style.overflow = "hidden";
 
-    // Summary character count
+    // Summary character count (edit mode only)
     const summaryEl = document.getElementById("modal-entry-summary");
-    const charCountEl = document.getElementById("summary-char-current");
-    summaryEl.addEventListener("input", () => {
-        const len = summaryEl.value.length;
-        charCountEl.textContent = len;
-        charCountEl.classList.toggle("at-limit", len >= SUMMARY_MAX);
-    });
+    if (summaryEl) {
+        const charCountEl = document.getElementById("summary-char-current");
+        summaryEl.addEventListener("input", () => {
+            const len = summaryEl.value.length;
+            charCountEl.textContent = len;
+            charCountEl.classList.toggle("at-limit", len >= SUMMARY_MAX);
+        });
+    }
 
     // Auto-resize main textarea and clear validation error
     const textarea = document.getElementById("modal-entry-body");
@@ -121,8 +120,8 @@ export function showEntryModal(assetIds, existingEntry = null, photoCreatedAt = 
         document.getElementById("modal-body-error").classList.add("hidden");
     });
 
-    // Focus the title field
-    document.getElementById("modal-entry-title").focus();
+    // Focus the body textarea — the primary writing surface
+    textarea.focus();
 
     // Cancel
     document.getElementById("modal-cancel").addEventListener("click", closeModal);
@@ -219,7 +218,9 @@ export function showEntryModal(assetIds, existingEntry = null, photoCreatedAt = 
         } catch (err) {
             saveBtn.disabled = false;
             saveBtn.textContent = isEdit ? "Save Changes" : "Save Entry";
-            alert("Failed to save: " + err.message);
+            const errEl = document.getElementById("modal-save-error");
+            errEl.textContent = "Failed to save: " + err.message;
+            errEl.classList.remove("hidden");
         }
     });
 }

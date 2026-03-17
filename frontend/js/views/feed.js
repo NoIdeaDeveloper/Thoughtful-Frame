@@ -93,8 +93,8 @@ export async function renderFeed(container) {
                 } else {
                     entriesEl.innerHTML = `
                         <div class="empty-state">
-                            <h2>Your journal is empty</h2>
-                            <p>Browse your photos to start writing about your memories.</p>
+                            <h2>Begin your journal</h2>
+                            <p>Browse your photos and write about your memories.</p>
                             <a href="#/browse" class="btn btn-primary">Browse Photos</a>
                         </div>
                     `;

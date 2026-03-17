@@ -1,5 +1,5 @@
 import { thumbnailUrl } from "../api.js";
-import { formatDate, escapeHtml, wordStats } from "../utils.js";
+import { formatDate, escapeHtml } from "../utils.js";
 
 export function renderEntryCard(entry) {
     if (!entry || !entry.id || !entry.immich_asset_ids || !Array.isArray(entry.immich_asset_ids) || entry.immich_asset_ids.length === 0) {
@@ -31,11 +31,9 @@ export function renderEntryCard(entry) {
         ? `<div class="entry-card-tags">${tags.map(t => `<a class="entry-tag" href="#/feed?tag=${encodeURIComponent(t)}">${escapeHtml(t)}</a>`).join("")}</div>`
         : "";
 
-    const { readingTime } = wordStats(safeBody);
     const dateHtml = `
         <span class="entry-card-date">${formatDate(safeCreatedAt)}</span>
-        ${wasEdited ? `<span class="entry-card-edited">edited ${formatDate(entry.updated_at)}</span>` : ""}
-        <span class="entry-reading-time">${readingTime}</span>
+        ${wasEdited ? `<span class="entry-card-edited">&middot; edited</span>` : ""}
     `;
 
     if (isMulti) {

@@ -32,10 +32,10 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
         const controls = document.createElement("div");
         controls.className = "gallery-controls";
         controls.innerHTML = `
-            <button class="gallery-control pause" title="Pause">⏸️</button>
-            <button class="gallery-control play hidden" title="Play">▶️</button>
-            <button class="gallery-control prev" title="Previous">⬅️</button>
-            <button class="gallery-control next" title="Next">➡️</button>
+            <button class="gallery-control pause" title="Pause">&#9646;&#9646;</button>
+            <button class="gallery-control play hidden" title="Play">&#9654;</button>
+            <button class="gallery-control prev" title="Previous">&#8249;</button>
+            <button class="gallery-control next" title="Next">&#8250;</button>
         `;
         
         // Insert controls after the photos container
@@ -263,12 +263,11 @@ export async function renderEntry(container, entryId) {
                 <div id="image-load-errors" style="color: var(--accent); margin: 10px 0; display: none;">
                     Some images failed to load. <button id="retry-images" class="btn btn-small">Retry</button>
                 </div>
-                ${entry.title ? `<h2 class="entry-detail-title">${escapeHtml(entry.title)}</h2>` : ""}
                 <div class="entry-detail-date">
                     ${formatDate(entry.created_at)}
-                    ${entry.updated_at !== entry.created_at ? ` (edited ${formatDate(entry.updated_at)})` : ""}
-                    <span class="entry-reading-time">&middot; ${wordStats(entry.body).readingTime}</span>
+                    ${entry.updated_at !== entry.created_at ? ` &middot; edited ${formatDate(entry.updated_at)}` : ""}
                 </div>
+                ${entry.title ? `<h2 class="entry-detail-title">${escapeHtml(entry.title)}</h2>` : ""}
                 ${entry.tags ? `<div class="entry-detail-tags">${entry.tags.split(",").map(t => t.trim()).filter(Boolean).map(t => `<a class="entry-tag" href="#/feed?tag=${encodeURIComponent(t)}">${escapeHtml(t)}</a>`).join("")}</div>` : ""}
                 <div class="entry-detail-body markdown-body">${renderMarkdown(entry.body)}</div>
                 <div class="entry-detail-actions">

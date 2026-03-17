@@ -5,6 +5,7 @@ import { escapeHtml } from "../utils.js";
 
 let multiSelectActive = false;
 let selectedAssetIds = [];
+let _noticeTimer = null;
 
 // Cache for asset IDs that have journal entries
 let _linkedAssetIds = null;
@@ -54,6 +55,8 @@ export async function renderBrowse(container) {
     removeSelectionBar();
     multiSelectActive = false;
     selectedAssetIds = [];
+    clearTimeout(_noticeTimer);
+    _noticeTimer = null;
 
     // Parse URL params from the hash (e.g. #/browse?entry=1&mode=add)
     // window.location.search is empty in hash-based routing
@@ -135,22 +138,19 @@ export async function renderBrowse(container) {
     if (addToEntryBtn) {
         addToEntryBtn.addEventListener("click", async () => {
             if (selectedAssetIds.length === 0) {
-                alert("Please select at least one photo to add to the entry.");
+                showBrowseNotice("Select at least one photo to add.", "error");
                 return;
             }
 
             try {
-                const data = await addAssetsToEntry(entryIdForAdding, selectedAssetIds);
-                alert(`Successfully added ${data.added.length} images to the entry!`);
-
+                await addAssetsToEntry(entryIdForAdding, selectedAssetIds);
                 selectedAssetIds = [];
                 gridEl.querySelectorAll(".photo-grid-item.selected").forEach((el) => {
                     el.classList.remove("selected");
                 });
-
                 window.location.hash = `#/entry/${entryIdForAdding}`;
             } catch (err) {
-                alert("Failed to add images to entry: " + err.message);
+                showBrowseNotice("Failed to add images: " + err.message, "error");
             }
         });
     }
@@ -325,8 +325,26 @@ function hasMorePages(data, currentPage, pageSize) {
     return items.length === pageSize;
 }
 
+function showBrowseNotice(message, type = "info") {
+    let notice = document.querySelector(".browse-notice");
+    if (!notice) {
+        notice = document.createElement("div");
+        notice.className = "browse-notice";
+        const container = document.querySelector(".browse-container");
+        if (container) container.prepend(notice);
+        else document.body.prepend(notice);
+    }
+    notice.textContent = message;
+    notice.dataset.type = type;
+    notice.classList.remove("browse-notice-hidden");
+    clearTimeout(_noticeTimer);
+    _noticeTimer = setTimeout(() => notice.classList.add("browse-notice-hidden"), 3500);
+}
+
 function skeletonGrid(count) {
-    return Array.from({ length: count })
+    const header = `<div class="skeleton date-group-header-skeleton"></div>`;
+    const items = Array.from({ length: count })
         .map(() => `<div class="skeleton skeleton-grid-item"></div>`)
         .join("");
+    return header + items;
 }
