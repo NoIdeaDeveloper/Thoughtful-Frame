@@ -18,9 +18,9 @@ async def get_settings():
         rows = await cursor.fetchall()
         row_map = {r[0]: r[1] for r in rows}
 
-        auto_slide_gallery = row_map["auto_slide_gallery"].lower() == "true" if "auto_slide_gallery" in row_map else True
+        auto_slide_gallery = row_map.get("auto_slide_gallery", "true").lower() == "true"
         theme = row_map.get("theme", "dark")
-        confetti_enabled = row_map["confetti_enabled"].lower() == "true" if "confetti_enabled" in row_map else True
+        confetti_enabled = row_map.get("confetti_enabled", "true").lower() == "true"
 
         return SettingsResponse(auto_slide_gallery=auto_slide_gallery, theme=theme, confetti_enabled=confetti_enabled)
         

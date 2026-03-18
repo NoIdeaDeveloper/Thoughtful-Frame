@@ -21,6 +21,23 @@ CACHE_TTL_SECONDS = 86400  # 24 hours
 Path(CACHE_DIR).mkdir(parents=True, exist_ok=True)
 
 
+def _raise_immich_error(e: Exception) -> None:
+    """Re-raise httpx connectivity/status errors as FastAPI HTTPExceptions."""
+    if isinstance(e, httpx.ConnectError):
+        raise HTTPException(status_code=502, detail="Cannot reach Immich server. Check IMMICH_BASE_URL.")
+    if isinstance(e, httpx.HTTPStatusError):
+        raise HTTPException(status_code=e.response.status_code,
+                            detail=f"Immich returned {e.response.status_code}")
+    raise e
+
+
+async def schedule_cache_cleanup():
+    """Background task: run cache cleanup every hour."""
+    while True:
+        await asyncio.sleep(3600)
+        await asyncio.to_thread(cleanup_cache_if_needed)
+
+
 def get_cache_path(asset_id: str, variant: str) -> Path:
     """Return the cache path for a given asset and variant (thumb/preview/original)."""
     safe_asset_id = Path(asset_id).name
@@ -83,20 +100,8 @@ async def get_cached_image(asset_id: str, variant: str, fetcher) -> tuple[bytes,
     # Fetch from Immich
     try:
         image_bytes, content_type = await fetcher()
-    except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail="Cannot reach Immich server. Check IMMICH_BASE_URL.")
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code,
-                            detail=f"Immich returned {e.response.status_code}")
-
-    # Run cache cleanup in background to avoid blocking the event loop
-    def cleanup_cache_wrapper():
-        try:
-            cleanup_cache_if_needed()
-        except Exception as e:
-            logger.error(f"Background cache cleanup failed: {e}", exc_info=True)
-    
-    asyncio.create_task(asyncio.to_thread(cleanup_cache_wrapper))
+    except (httpx.ConnectError, httpx.HTTPStatusError) as e:
+        _raise_immich_error(e)
 
     try:
         cache_path.write_bytes(image_bytes)
@@ -137,22 +142,16 @@ async def list_assets(page: int = 1, page_size: int = 50):
                 logger.warning("Immich didn't provide total count; frontend will use page-size fallback")
 
         return data
-    except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail="Cannot reach Immich server. Check IMMICH_BASE_URL.")
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code,
-                            detail=f"Immich returned {e.response.status_code}")
+    except (httpx.ConnectError, httpx.HTTPStatusError) as e:
+        _raise_immich_error(e)
 
 
 @router.get("/assets/{asset_id}")
 async def get_asset_detail(asset_id: str):
     try:
         return await immich_client.get_asset(asset_id)
-    except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail="Cannot reach Immich server. Check IMMICH_BASE_URL.")
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code,
-                            detail=f"Immich returned {e.response.status_code}")
+    except (httpx.ConnectError, httpx.HTTPStatusError) as e:
+        _raise_immich_error(e)
 
 
 @router.get("/assets/{asset_id}/thumbnail")

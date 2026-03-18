@@ -83,3 +83,22 @@ export function escapeHtml(str) {
     div.textContent = str;
     return div.innerHTML;
 }
+
+/**
+ * Escape a string for safe use inside an HTML attribute value (e.g. value="...").
+ */
+export function escapeAttr(str) {
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+}
+
+/**
+ * Parse a comma-separated tag string into a trimmed, non-empty array.
+ */
+export function parseTags(tagString) {
+    if (!tagString) return [];
+    return tagString.split(",").map((t) => t.trim()).filter(Boolean);
+}

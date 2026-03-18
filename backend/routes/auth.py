@@ -17,9 +17,13 @@ _RATE_LIMIT_MAX = 5  # max attempts per window
 def _check_rate_limit(ip: str) -> None:
     now = time.time()
     attempts = _failed_attempts[ip]
-    # Prune attempts outside the window
-    _failed_attempts[ip] = [t for t in attempts if now - t < _RATE_LIMIT_WINDOW]
-    if len(_failed_attempts[ip]) >= _RATE_LIMIT_MAX:
+    # Prune attempts outside the window; remove key entirely when empty
+    recent = [t for t in attempts if now - t < _RATE_LIMIT_WINDOW]
+    if recent:
+        _failed_attempts[ip] = recent
+    else:
+        _failed_attempts.pop(ip, None)
+    if len(recent) >= _RATE_LIMIT_MAX:
         raise HTTPException(
             status_code=429,
             detail="Too many failed login attempts. Please wait a minute and try again.",

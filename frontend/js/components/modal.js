@@ -1,5 +1,5 @@
 import { thumbnailUrl, createEntry, updateEntry } from "../api.js";
-import { escapeHtml } from "../utils.js";
+import { escapeHtml, escapeAttr } from "../utils.js";
 import { showRemoveImagesModal } from "../views/entry.js";
 import { launchConfetti } from "../confetti.js";
 import { invalidateLinkedAssetIdsCache } from "../views/browse.js";
@@ -13,15 +13,15 @@ let _escHandler = null;
 
 const SUMMARY_MAX = 200;
 
-/**
- * Escape HTML attributes to prevent XSS in attribute contexts
- */
-function escapeAttr(str) {
-    return str
-        .replace(/&/g, "&amp;")
-        .replace(/"/g, "&quot;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
+/** Attach overlay-click and Escape-key dismissal handlers, replacing any previous ones. */
+function _setupDismissal(closeFn) {
+    if (_overlayClickHandler) overlay.removeEventListener("click", _overlayClickHandler);
+    _overlayClickHandler = (e) => { if (e.target === overlay) closeFn(); };
+    overlay.addEventListener("click", _overlayClickHandler);
+
+    if (_escHandler) document.removeEventListener("keydown", _escHandler);
+    _escHandler = (e) => { if (e.key === "Escape") closeFn(); };
+    document.addEventListener("keydown", _escHandler);
 }
 
 /** Convert ISO timestamp or date string to YYYY-MM-DD for <input type="date"> */
@@ -125,16 +125,7 @@ export function showEntryModal(assetIds, existingEntry = null, photoCreatedAt = 
 
     // Cancel
     document.getElementById("modal-cancel").addEventListener("click", closeModal);
-
-    // Overlay click
-    if (_overlayClickHandler) overlay.removeEventListener("click", _overlayClickHandler);
-    _overlayClickHandler = (e) => { if (e.target === overlay) closeModal(); };
-    overlay.addEventListener("click", _overlayClickHandler);
-
-    // Escape key
-    if (_escHandler) document.removeEventListener("keydown", _escHandler);
-    _escHandler = (e) => { if (e.key === "Escape") closeModal(); };
-    document.addEventListener("keydown", _escHandler);
+    _setupDismissal(closeModal);
 
     // Add/Remove image buttons (edit mode only)
     if (isEdit) {
@@ -246,13 +237,7 @@ export function showEntryPickerModal(assetId, entries) {
     overlay.classList.remove("hidden");
     document.body.style.overflow = "hidden";
 
-    if (_overlayClickHandler) overlay.removeEventListener("click", _overlayClickHandler);
-    _overlayClickHandler = (e) => { if (e.target === overlay) closeModal(); };
-    overlay.addEventListener("click", _overlayClickHandler);
-
-    if (_escHandler) document.removeEventListener("keydown", _escHandler);
-    _escHandler = (e) => { if (e.key === "Escape") closeModal(); };
-    document.addEventListener("keydown", _escHandler);
+    _setupDismissal(closeModal);
 
     container.querySelectorAll(".entry-picker-item[data-entry-id]").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -301,13 +286,7 @@ export function showReorderImagesModal(entryId, assetIds) {
     overlay.classList.remove("hidden");
     document.body.style.overflow = "hidden";
 
-    if (_overlayClickHandler) overlay.removeEventListener("click", _overlayClickHandler);
-    _overlayClickHandler = (e) => { if (e.target === overlay) closeModal(); };
-    overlay.addEventListener("click", _overlayClickHandler);
-
-    if (_escHandler) document.removeEventListener("keydown", _escHandler);
-    _escHandler = (e) => { if (e.key === "Escape") closeModal(); };
-    document.addEventListener("keydown", _escHandler);
+    _setupDismissal(closeModal);
 
     let dragSrcIndex = null;
 

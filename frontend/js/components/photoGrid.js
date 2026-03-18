@@ -1,13 +1,7 @@
 import { thumbnailUrl } from "../api.js";
-import { formatDate } from "../utils.js";
+import { formatDate, escapeAttr } from "../utils.js";
 
-function escapeAttr(str) {
-    return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/"/g, "&quot;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-}
+const _dateCache = {};
 
 /**
  * Renders a grid of photo items as a DocumentFragment.
@@ -19,11 +13,10 @@ function escapeAttr(str) {
 export function renderPhotoGrid(assets, assetsWithEntries, alreadyInEntry = new Set()) {
     const fragment = document.createDocumentFragment();
     let currentDate = null;
-    const dateCache = {};
 
     for (const asset of assets) {
         const dayKey = asset.fileCreatedAt ? asset.fileCreatedAt.slice(0, 10) : null;
-        const assetDate = dayKey ? (dateCache[dayKey] ??= formatDate(asset.fileCreatedAt)) : null;
+        const assetDate = dayKey ? (_dateCache[dayKey] ??= formatDate(asset.fileCreatedAt)) : null;
         if (assetDate && assetDate !== currentDate) {
             const header = document.createElement("div");
             header.className = "date-group-header";

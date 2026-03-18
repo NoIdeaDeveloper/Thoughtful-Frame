@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from datetime import datetime, timezone
@@ -23,6 +24,20 @@ async def _get_current_asset_ids(db, entry_id: int) -> list[str]:
         "SELECT immich_asset_id FROM entry_assets WHERE entry_id = ?", (entry_id,)
     )
     return [row["immich_asset_id"] for row in await cursor.fetchall()]
+
+
+def _sql_placeholders(items) -> str:
+    """Return a comma-separated string of '?' placeholders for an IN clause."""
+    return ",".join("?" for _ in items)
+
+
+async def _verify_entry_exists(db, entry_id: int) -> None:
+    """Raise 404 if the entry does not exist."""
+    cursor = await db.execute(
+        "SELECT id FROM journal_entries WHERE id = ?", (entry_id,)
+    )
+    if not await cursor.fetchone():
+        raise HTTPException(status_code=404, detail="Entry not found")
 
 
 async def _get_next_position(db, entry_id: int) -> int:
@@ -57,7 +72,7 @@ async def _build_entries_response(db, entry_rows) -> list[EntryResponse]:
     entry_ids = [r["id"] for r in entry_rows]
     
     # Safe parameterized query - build IN clause with proper placeholders
-    placeholders = ",".join("?" for _ in entry_ids)
+    placeholders = _sql_placeholders(entry_ids)
     query = f"SELECT entry_id, immich_asset_id FROM entry_assets WHERE entry_id IN ({placeholders}) ORDER BY entry_id, position"
     cursor = await db.execute(query, entry_ids)
     asset_rows = await cursor.fetchall()
@@ -132,12 +147,11 @@ async def list_entries(
 async def get_entry(entry_id: int):
     db = get_db()
     try:
+        await _verify_entry_exists(db, entry_id)
         cursor = await db.execute(
             "SELECT * FROM journal_entries WHERE id = ?", (entry_id,)
         )
         entry = await cursor.fetchone()
-        if not entry:
-            raise HTTPException(status_code=404, detail="Entry not found")
         return await _build_entry_response(db, entry)
     except HTTPException:
         raise
@@ -196,12 +210,11 @@ async def create_entry(data: EntryCreate):
 async def update_entry(entry_id: int, data: EntryUpdate):
     db = get_db()
     try:
+        await _verify_entry_exists(db, entry_id)
         cursor = await db.execute(
             "SELECT * FROM journal_entries WHERE id = ?", (entry_id,)
         )
         entry = await cursor.fetchone()
-        if not entry:
-            raise HTTPException(status_code=404, detail="Entry not found")
 
         now = datetime.now(timezone.utc).isoformat()
         new_title = data.title if data.title is not None else entry["title"]
@@ -264,13 +277,7 @@ async def add_assets_to_entry(entry_id: int, data: EntryUpdate):
     
     db = get_db()
     try:
-        # Verify entry exists
-        cursor = await db.execute(
-            "SELECT id FROM journal_entries WHERE id = ?", (entry_id,)
-        )
-        if not await cursor.fetchone():
-            raise HTTPException(status_code=404, detail="Entry not found")
-        
+        await _verify_entry_exists(db, entry_id)
         current_assets = await _get_current_asset_ids(db, entry_id)
         new_assets = [a for a in data.immich_asset_ids if a not in current_assets]
 
@@ -311,15 +318,10 @@ async def remove_assets_from_entry(entry_id: int, request: AssetIdsRequest):
     
     db = get_db()
     try:
-        # Verify entry exists
-        cursor = await db.execute(
-            "SELECT id FROM journal_entries WHERE id = ?", (entry_id,)
-        )
-        if not await cursor.fetchone():
-            raise HTTPException(status_code=404, detail="Entry not found")
+        await _verify_entry_exists(db, entry_id)
 
         # Atomically check that removal won't leave zero assets, then delete
-        placeholders = ",".join("?" for _ in asset_ids)
+        placeholders = _sql_placeholders(asset_ids)
         cursor = await db.execute(
             f"SELECT COUNT(*) as cnt FROM entry_assets WHERE entry_id = ? AND immich_asset_id NOT IN ({placeholders})",
             [entry_id, *asset_ids],
@@ -353,12 +355,7 @@ async def remove_assets_from_entry(entry_id: int, request: AssetIdsRequest):
 async def delete_entry(entry_id: int):
     db = get_db()
     try:
-        cursor = await db.execute(
-            "SELECT id FROM journal_entries WHERE id = ?", (entry_id,)
-        )
-        if not await cursor.fetchone():
-            raise HTTPException(status_code=404, detail="Entry not found")
-
+        await _verify_entry_exists(db, entry_id)
         await db.execute("DELETE FROM journal_entries WHERE id = ?", (entry_id,))
         await db.commit()
         return {"ok": True}
@@ -407,20 +404,13 @@ async def search_entries(
         offset = (page - 1) * page_size
 
         cursor = await db.execute(
-            """SELECT COUNT(*) as cnt FROM journal_entries
-               WHERE title LIKE ? OR summary LIKE ? OR body LIKE ?""",
-            (pattern, pattern, pattern),
-        )
-        row = await cursor.fetchone()
-        total = row["cnt"]
-
-        cursor = await db.execute(
-            """SELECT * FROM journal_entries
+            """SELECT *, COUNT(*) OVER() AS total_count FROM journal_entries
                WHERE title LIKE ? OR summary LIKE ? OR body LIKE ?
                ORDER BY created_at DESC LIMIT ? OFFSET ?""",
             (pattern, pattern, pattern, page_size, offset),
         )
         entries = await cursor.fetchall()
+        total = entries[0]["total_count"] if entries else 0
         result = await _build_entries_response(db, entries)
         return EntryListResponse(entries=result, total=total, page=page, page_size=page_size)
     except Exception as e:
@@ -455,7 +445,7 @@ async def get_assets_with_entries(data: AssetIdsRequest):
 
     db = get_db()
     try:
-        placeholders = ",".join("?" for _ in data.asset_ids)
+        placeholders = _sql_placeholders(data.asset_ids)
         query = f"SELECT DISTINCT immich_asset_id FROM entry_assets WHERE immich_asset_id IN ({placeholders})"
         cursor = await db.execute(query, data.asset_ids)
         rows = await cursor.fetchall()
@@ -528,7 +518,6 @@ async def list_backups():
 @router.post("/backup")
 async def trigger_backup():
     """Trigger an immediate database backup."""
-    import asyncio
     try:
         path = await asyncio.to_thread(backup_module.run_backup)
         return {"ok": True, "backup_path": path}

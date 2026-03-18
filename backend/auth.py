@@ -1,3 +1,4 @@
+import asyncio
 import secrets
 import time
 from fastapi import Request, HTTPException
@@ -15,8 +16,14 @@ async def _prune_expired_sessions() -> None:
     await db.commit()
 
 
+async def schedule_session_pruning():
+    """Background task: prune expired sessions hourly."""
+    while True:
+        await asyncio.sleep(3600)
+        await _prune_expired_sessions()
+
+
 async def create_session() -> str:
-    await _prune_expired_sessions()
     token = secrets.token_hex(32)
     expires_at = time.time() + SESSION_TTL_SECONDS
     db = get_db()

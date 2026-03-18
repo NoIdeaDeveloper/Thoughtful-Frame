@@ -1,5 +1,5 @@
 import { fetchEntry, deleteEntry, previewUrl, thumbnailUrl, removeAssetsFromEntry, fetchImmichConfig, getSettings } from "../api.js";
-import { formatDate, escapeHtml, renderMarkdown, wordStats } from "../utils.js";
+import { formatDate, escapeHtml, parseTags, renderMarkdown, wordStats } from "../utils.js";
 import { showEntryModal, closeModal } from "../components/modal.js";
 
 /**
@@ -242,6 +242,7 @@ export async function renderEntry(container, entryId) {
             return `<div class="entry-photo-wrapper"><img src="${previewUrl(id)}"${lazy ? ' loading="lazy"' : ""} alt="${altText}" data-asset-id="${id}">${link}</div>`;
         }
 
+        const entryTags = parseTags(entry.tags);
         let photosHtml;
         if (isMulti) {
             photosHtml = `
@@ -268,7 +269,7 @@ export async function renderEntry(container, entryId) {
                     ${entry.updated_at !== entry.created_at ? ` &middot; edited ${formatDate(entry.updated_at)}` : ""}
                 </div>
                 ${entry.title ? `<h2 class="entry-detail-title">${escapeHtml(entry.title)}</h2>` : ""}
-                ${entry.tags ? `<div class="entry-detail-tags">${entry.tags.split(",").map(t => t.trim()).filter(Boolean).map(t => `<a class="entry-tag" href="#/feed?tag=${encodeURIComponent(t)}">${escapeHtml(t)}</a>`).join("")}</div>` : ""}
+                ${entryTags.length ? `<div class="entry-detail-tags">${entryTags.map(t => `<a class="entry-tag" href="#/feed?tag=${encodeURIComponent(t)}">${escapeHtml(t)}</a>`).join("")}</div>` : ""}
                 <div class="entry-detail-body markdown-body">${renderMarkdown(entry.body)}</div>
                 <div class="entry-detail-actions">
                     <button class="btn btn-secondary" id="entry-edit">Edit</button>

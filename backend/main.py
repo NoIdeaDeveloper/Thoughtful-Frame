@@ -11,7 +11,8 @@ from backend.database import open_db, close_db, init_db, get_db
 from backend.routes import journal, immich_proxy, settings
 from backend.routes import auth as auth_routes
 from backend import immich_client
-from backend.auth import require_auth
+from backend.auth import require_auth, schedule_session_pruning
+from backend.routes.immich_proxy import schedule_cache_cleanup
 from backend.config import APP_PASSWORD, DATABASE_PATH
 from backend.backup import schedule_daily_backups, list_backups
 
@@ -57,8 +58,12 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("Database initialized successfully")
     backup_task = asyncio.create_task(schedule_daily_backups())
+    session_prune_task = asyncio.create_task(schedule_session_pruning())
+    cache_cleanup_task = asyncio.create_task(schedule_cache_cleanup())
     yield
     backup_task.cancel()
+    session_prune_task.cancel()
+    cache_cleanup_task.cancel()
     logger.info("Application shutting down...")
     logger.debug("Closing database connection...")
     await close_db()

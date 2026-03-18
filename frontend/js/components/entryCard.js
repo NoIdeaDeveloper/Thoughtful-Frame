@@ -1,5 +1,5 @@
 import { thumbnailUrl } from "../api.js";
-import { formatDate, escapeHtml } from "../utils.js";
+import { formatDate, escapeHtml, parseTags } from "../utils.js";
 
 export function renderEntryCard(entry) {
     if (!entry || !entry.id || !entry.immich_asset_ids || !Array.isArray(entry.immich_asset_ids) || entry.immich_asset_ids.length === 0) {
@@ -20,7 +20,7 @@ export function renderEntryCard(entry) {
     const safeSummary = entry.summary || "";
     const safeCreatedAt = entry.created_at || new Date().toISOString();
     const wasEdited = entry.updated_at && entry.updated_at !== entry.created_at;
-    const tags = entry.tags ? entry.tags.split(",").map(t => t.trim()).filter(Boolean) : [];
+    const tags = parseTags(entry.tags);
 
     // Show summary if provided, otherwise fall back to truncated body
     const previewText = safeSummary

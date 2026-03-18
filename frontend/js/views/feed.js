@@ -158,6 +158,7 @@ export async function renderFeed(container) {
     searchInput.addEventListener("input", () => {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
+            if (!document.getElementById("feed-entries")) return;
             currentQuery = searchInput.value;
             currentTag = "";
             renderFirstPage();
