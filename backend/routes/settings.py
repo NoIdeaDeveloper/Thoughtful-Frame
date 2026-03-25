@@ -80,8 +80,8 @@ async def get_journal_stats():
         
         # Format response
         stats = {
-            "by_month": [{"month": row[0], "count": row[1]} for row in rows],
-            "total_entries": sum(row[1] for row in rows)
+            "by_month": [{"month": row["month"], "count": row["count"]} for row in rows],
+            "total_entries": sum(row["count"] for row in rows)
         }
         
         return stats

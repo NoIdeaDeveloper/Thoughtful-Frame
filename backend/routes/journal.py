@@ -164,6 +164,26 @@ async def list_entries(
         raise HTTPException(status_code=500, detail="Failed to list entries")
 
 
+@router.get("/entries/by-asset/{asset_id}", response_model=list[EntryResponse])
+async def get_entries_for_asset(asset_id: str):
+    db = get_db()
+    try:
+        cursor = await db.execute(
+            """
+            SELECT je.* FROM journal_entries je
+            JOIN entry_assets ea ON je.id = ea.entry_id
+            WHERE ea.immich_asset_id = ?
+            ORDER BY je.created_at DESC
+            """,
+            (asset_id,),
+        )
+        entries = await cursor.fetchall()
+        return await _build_entries_response(db, entries)
+    except Exception as e:
+        logger.error(f"Failed to get entries for asset {asset_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get entries for asset")
+
+
 @router.get("/entries/{entry_id}", response_model=EntryResponse)
 async def get_entry(entry_id: int):
     db = get_db()
@@ -434,26 +454,6 @@ async def search_entries(
     except Exception as e:
         logger.error(f"Failed to search entries: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to search entries")
-
-
-@router.get("/entries/by-asset/{asset_id}", response_model=list[EntryResponse])
-async def get_entries_for_asset(asset_id: str):
-    db = get_db()
-    try:
-        cursor = await db.execute(
-            """
-            SELECT je.* FROM journal_entries je
-            JOIN entry_assets ea ON je.id = ea.entry_id
-            WHERE ea.immich_asset_id = ?
-            ORDER BY je.created_at DESC
-            """,
-            (asset_id,),
-        )
-        entries = await cursor.fetchall()
-        return await _build_entries_response(db, entries)
-    except Exception as e:
-        logger.error(f"Failed to get entries for asset {asset_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get entries for asset")
 
 
 @router.post("/entries/by-assets", response_model=AssetIdsWithEntriesResponse)

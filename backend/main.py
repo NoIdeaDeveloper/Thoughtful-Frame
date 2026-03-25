@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 import time
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
@@ -82,7 +82,10 @@ async def auth_middleware(request: Request, call_next):
         if not any(request.url.path.startswith(p) for p in UNPROTECTED_PREFIXES):
             try:
                 await require_auth(request)
-            except Exception:
+            except HTTPException:
+                return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+            except Exception as e:
+                logger.error(f"Unexpected auth error: {e}", exc_info=True)
                 return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
     return await call_next(request)
 

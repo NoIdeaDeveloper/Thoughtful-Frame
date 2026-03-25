@@ -1,3 +1,4 @@
+import hmac
 import time
 from collections import defaultdict
 from fastapi import APIRouter, HTTPException, Response, Request
@@ -40,7 +41,7 @@ async def login(body: LoginRequest, response: Response, request: Request):
         return {"ok": True}  # Auth disabled — always succeed
     ip = request.client.host if request.client else "unknown"
     _check_rate_limit(ip)
-    if body.password != APP_PASSWORD:
+    if not hmac.compare_digest(body.password, APP_PASSWORD):
         _failed_attempts[ip].append(time.time())
         raise HTTPException(status_code=401, detail="Incorrect password")
     # Clear failed attempts on successful login

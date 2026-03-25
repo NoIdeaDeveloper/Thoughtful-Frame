@@ -56,7 +56,8 @@ def cleanup_cache_if_needed():
                 stat = file.stat()
                 total_size += stat.st_size
                 cache_files.append((file, stat.st_mtime, stat.st_size))
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Failed to stat cache file {file}: {e}")
                 continue
 
         total_size_mb = total_size / (1024 * 1024)
@@ -71,7 +72,8 @@ def cleanup_cache_if_needed():
                     total_size -= file_size
                     if total_size / (1024 * 1024) <= CACHE_SIZE_LIMIT_MB * 0.9:
                         break
-                except Exception:
+                except Exception as e:
+                    logger.warning(f"Failed to delete cache file {file}: {e}")
                     continue
 
             logger.info(f"Cache cleaned. New size: {total_size / (1024 * 1024):.1f}MB")

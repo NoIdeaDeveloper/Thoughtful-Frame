@@ -19,8 +19,11 @@ async def _prune_expired_sessions() -> None:
 async def schedule_session_pruning():
     """Background task: prune expired sessions hourly."""
     while True:
-        await asyncio.sleep(3600)
-        await _prune_expired_sessions()
+        try:
+            await asyncio.sleep(3600)
+            await _prune_expired_sessions()
+        except asyncio.CancelledError:
+            raise
 
 
 async def create_session() -> str:
