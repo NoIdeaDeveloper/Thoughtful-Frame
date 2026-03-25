@@ -103,13 +103,15 @@ export async function renderFeed(container) {
                 return;
             }
 
+            const fragment = document.createDocumentFragment();
             for (const entry of data.entries) {
                 try {
-                    entriesEl.appendChild(renderEntryCard(entry));
+                    fragment.appendChild(renderEntryCard(entry));
                 } catch (renderError) {
                     console.error(`Failed to render entry ${entry.id}:`, renderError);
                 }
             }
+            entriesEl.appendChild(fragment);
 
             if (data.total > currentPage * pageSize) {
                 loadMoreEl.classList.remove("hidden");
@@ -132,17 +134,28 @@ export async function renderFeed(container) {
 
     // Load more
     const loadMoreBtn = loadMoreEl.querySelector("button");
-    loadMoreBtn.addEventListener("click", async () => {
+
+    // Declared before loadNextPage so the closure can reference it
+    const loadMoreObserver = new IntersectionObserver(
+        (entries) => { if (entries[0].isIntersecting) loadNextPage(); },
+        { rootMargin: "200px" }
+    );
+
+    async function loadNextPage() {
+        if (loadMoreBtn.disabled) return;
         currentPage++;
         loadMoreBtn.innerHTML = `Loading… <span class="spinner"></span>`;
         loadMoreBtn.disabled = true;
         try {
             const moreData = await loadPage(currentPage);
+            const fragment = document.createDocumentFragment();
             for (const entry of moreData.entries) {
-                entriesEl.appendChild(renderEntryCard(entry));
+                fragment.appendChild(renderEntryCard(entry));
             }
+            entriesEl.appendChild(fragment);
             if (moreData.total <= currentPage * pageSize) {
                 loadMoreEl.innerHTML = `<p class="all-caught-up">✓ You're all caught up</p>`;
+                loadMoreObserver.disconnect();
             } else {
                 loadMoreBtn.textContent = "Load more";
                 loadMoreBtn.disabled = false;
@@ -151,7 +164,10 @@ export async function renderFeed(container) {
             loadMoreBtn.textContent = "Load more";
             loadMoreBtn.disabled = false;
         }
-    });
+    }
+
+    loadMoreBtn.addEventListener("click", loadNextPage);
+    loadMoreObserver.observe(loadMoreBtn);
 
     // Debounced search
     let debounceTimer = null;
@@ -159,11 +175,21 @@ export async function renderFeed(container) {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
             if (!document.getElementById("feed-entries")) return;
-            currentQuery = searchInput.value;
+            const newQuery = searchInput.value;
+            if (newQuery === currentQuery) return;
+            currentQuery = newQuery;
             currentTag = "";
             renderFirstPage();
         }, 300);
     });
+
+    // Disconnect observer and cancel debounce when navigating away (SPA teardown)
+    function onHashChange() {
+        loadMoreObserver.disconnect();
+        clearTimeout(debounceTimer);
+        window.removeEventListener("hashchange", onHashChange);
+    }
+    window.addEventListener("hashchange", onHashChange);
 
     // Date filters
     dateFromInput.addEventListener("change", () => {

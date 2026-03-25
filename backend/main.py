@@ -18,7 +18,7 @@ from backend.backup import schedule_daily_backups, list_backups
 
 # Configure logging before any class definitions that use logger
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(module)s:%(lineno)d - %(message)s',
     handlers=[
         logging.StreamHandler()
@@ -42,11 +42,10 @@ class CachedStaticFiles(StaticFiles):
             logger.error(f"Failed to serve static file {path}: {e}", exc_info=True)
             raise
 
-# Configure uvicorn logging to be more verbose
 uvicorn_logger = logging.getLogger("uvicorn")
-uvicorn_logger.setLevel(logging.DEBUG)
+uvicorn_logger.setLevel(logging.INFO)
 uvicorn_access_logger = logging.getLogger("uvicorn.access")
-uvicorn_access_logger.setLevel(logging.DEBUG)
+uvicorn_access_logger.setLevel(logging.INFO)
 
 
 @asynccontextmanager
@@ -92,48 +91,62 @@ app.include_router(immich_proxy.router, prefix="/api/immich")
 app.include_router(journal.router, prefix="/api/journal")
 app.include_router(settings.router, prefix="/api")
 
+_health_cache: dict = {}
+_HEALTH_CACHE_TTL = 60  # seconds
+
 
 @app.get("/api/health")
-async def health_check():
+async def health_check(full: bool = False):
     logger.info("Health check endpoint called")
-    status = {"database": "ok", "immich": "ok"}
+
+    now = time.time()
+    cached = _health_cache.get("data")
+    if cached and not full and (now - _health_cache.get("ts", 0)) < _HEALTH_CACHE_TTL:
+        return cached
+
+    status: dict = {"database": "ok"}
     details: dict = {}
 
     try:
         db = get_db()
         await db.execute("SELECT 1")
-        # Entry count
         cursor = await db.execute("SELECT COUNT(*) as cnt FROM journal_entries")
         row = await cursor.fetchone()
         details["entry_count"] = row["cnt"]
-        # Session count
         cursor = await db.execute("SELECT COUNT(*) as cnt FROM sessions WHERE expires_at > ?", (time.time(),))
         row = await cursor.fetchone()
         details["active_sessions"] = row["cnt"]
-        # DB file size
         if os.path.exists(DATABASE_PATH):
             details["db_size_bytes"] = os.path.getsize(DATABASE_PATH)
     except Exception as e:
         status["database"] = f"error: {e}"
         logger.error(f"Database health check failed: {e}", exc_info=True)
 
-    # Immich latency
-    try:
-        t0 = time.monotonic()
-        await immich_client.get_assets(page=1, page_size=1)
-        details["immich_latency_ms"] = round((time.monotonic() - t0) * 1000)
-    except httpx.ConnectError:
-        status["immich"] = "error: cannot reach Immich server"
-        logger.error("Immich health check failed: cannot reach Immich server")
-    except Exception as e:
-        status["immich"] = f"error: {e}"
-        logger.error(f"Immich health check failed: {e}")
+    # Immich latency — only checked when ?full=true to avoid overhead on frequent polls
+    if full:
+        status["immich"] = "ok"
+        try:
+            t0 = time.monotonic()
+            await immich_client.get_assets(page=1, page_size=1)
+            details["immich_latency_ms"] = round((time.monotonic() - t0) * 1000)
+        except httpx.ConnectError:
+            status["immich"] = "error: cannot reach Immich server"
+            logger.error("Immich health check failed: cannot reach Immich server")
+        except Exception as e:
+            status["immich"] = f"error: {e}"
+            logger.error(f"Immich health check failed: {e}")
 
-    # Backup count
     details["backup_count"] = len(list_backups())
 
     healthy = all(v == "ok" for v in status.values())
-    return {"healthy": healthy, **status, **details}
+    result = {"healthy": healthy, **status, **details}
+
+    # Only cache healthy results — errors should not be served stale
+    if healthy:
+        _health_cache["data"] = result
+        _health_cache["ts"] = now
+
+    return result
 
 
 # Mount static files with proper cache control

@@ -19,6 +19,26 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+async def _sync_tags(db, entry_id: int, tags_str: str) -> None:
+    """Sync the normalized tags tables for an entry from its comma-separated tags string."""
+    await db.execute("DELETE FROM entry_tags WHERE entry_id = ?", (entry_id,))
+    if not tags_str:
+        return
+    tag_names = [t.strip() for t in tags_str.split(",") if t.strip()]
+    for name in tag_names:
+        # Single atomic upsert: always returns the id whether inserted or already existing
+        cursor = await db.execute(
+            "INSERT INTO tags (name) VALUES (?) ON CONFLICT(name) DO UPDATE SET name=excluded.name RETURNING id",
+            (name,),
+        )
+        tag_row = await cursor.fetchone()
+        if tag_row:
+            await db.execute(
+                "INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?, ?)",
+                (entry_id, tag_row["id"]),
+            )
+
+
 async def _get_current_asset_ids(db, entry_id: int) -> list[str]:
     cursor = await db.execute(
         "SELECT immich_asset_id FROM entry_assets WHERE entry_id = ?", (entry_id,)
@@ -117,9 +137,10 @@ async def list_entries(
             conditions.append("created_at <= ?")
             params.append(date_to + "T23:59:59.999999Z")
         if tag:
-            # Match tag as a whole comma-separated token
-            conditions.append("(',' || tags || ',') LIKE ?")
-            params.append(f"%,{tag},%")
+            conditions.append(
+                "id IN (SELECT et.entry_id FROM entry_tags et JOIN tags t ON et.tag_id = t.id WHERE t.name = ? COLLATE NOCASE)"
+            )
+            params.append(tag)
 
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
@@ -186,6 +207,8 @@ async def create_entry(data: EntryCreate):
             [(entry_id, asset_id, position) for position, asset_id in enumerate(data.immich_asset_ids)]
         )
 
+        await _sync_tags(db, entry_id, data.tags)
+
         # Commit transaction
         await db.commit()
 
@@ -242,6 +265,8 @@ async def update_entry(entry_id: int, data: EntryUpdate):
                 "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
                 [(entry_id, asset_id, position) for position, asset_id in enumerate(data.immich_asset_ids)]
             )
+
+        await _sync_tags(db, entry_id, new_tags)
 
         # Commit transaction
         await db.commit()
@@ -372,17 +397,9 @@ async def list_tags():
     """Return all distinct tags used across journal entries."""
     db = get_db()
     try:
-        cursor = await db.execute(
-            "SELECT tags FROM journal_entries WHERE tags != ''"
-        )
+        cursor = await db.execute("SELECT name FROM tags ORDER BY name COLLATE NOCASE")
         rows = await cursor.fetchall()
-        tag_set: set[str] = set()
-        for row in rows:
-            for t in row["tags"].split(","):
-                t = t.strip()
-                if t:
-                    tag_set.add(t)
-        return {"tags": sorted(tag_set)}
+        return {"tags": [r["name"] for r in rows]}
     except Exception as e:
         logger.error(f"Failed to list tags: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to list tags")
@@ -400,14 +417,15 @@ async def search_entries(
         if not q.strip():
             return await list_entries(page=page, page_size=page_size)
 
-        pattern = f"%{q}%"
+        # Wrap query in double quotes for FTS5 phrase matching; escape internal quotes
+        fts_query = '"' + q.replace('"', '""') + '"'
         offset = (page - 1) * page_size
 
         cursor = await db.execute(
             """SELECT *, COUNT(*) OVER() AS total_count FROM journal_entries
-               WHERE title LIKE ? OR summary LIKE ? OR body LIKE ?
+               WHERE id IN (SELECT rowid FROM journal_entries_fts WHERE journal_entries_fts MATCH ?)
                ORDER BY created_at DESC LIMIT ? OFFSET ?""",
-            (pattern, pattern, pattern, page_size, offset),
+            (fts_query, page_size, offset),
         )
         entries = await cursor.fetchall()
         total = entries[0]["total_count"] if entries else 0
@@ -564,6 +582,8 @@ async def import_journal(data: dict):
                 "INSERT INTO entry_assets (entry_id, immich_asset_id, position) VALUES (?, ?, ?)",
                 [(entry_id, asset_id, position) for position, asset_id in enumerate(asset_ids)]
             )
+
+            await _sync_tags(db, entry_id, tags)
 
             imported += 1
         except Exception as e:

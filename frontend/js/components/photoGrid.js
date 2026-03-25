@@ -32,6 +32,10 @@ export function renderPhotoGrid(assets, assetsWithEntries, alreadyInEntry = new 
         item.className = `photo-grid-item${isAlreadyAdded ? " already-in-entry" : ""}`;
         item.dataset.assetId = asset.id;
         if (asset.fileCreatedAt) item.dataset.fileCreatedAt = asset.fileCreatedAt;
+        if (!isAlreadyAdded) {
+            item.setAttribute("role", "button");
+            item.setAttribute("tabindex", "0");
+        }
 
         item.innerHTML = `
             <img src="${thumbnailUrl(asset.id)}" loading="lazy" alt="${escapeAttr(asset.originalFileName || 'Photo')}">

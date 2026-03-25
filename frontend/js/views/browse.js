@@ -142,6 +142,8 @@ export async function renderBrowse(container) {
                 return;
             }
 
+            addToEntryBtn.disabled = true;
+            addToEntryBtn.textContent = "Adding...";
             try {
                 await addAssetsToEntry(entryIdForAdding, selectedAssetIds);
                 selectedAssetIds = [];
@@ -151,6 +153,8 @@ export async function renderBrowse(container) {
                 window.location.hash = `#/entry/${entryIdForAdding}`;
             } catch (err) {
                 showBrowseNotice("Failed to add images: " + err.message, "error");
+                addToEntryBtn.disabled = false;
+                addToEntryBtn.textContent = "Add to Entry";
             }
         });
     }
@@ -253,6 +257,13 @@ export async function renderBrowse(container) {
             item.dataset.clickAttached = "true";
 
             if (item.classList.contains("already-in-entry")) return;
+
+            item.addEventListener("keydown", (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    item.click();
+                }
+            });
 
             item.addEventListener("click", async () => {
                 const assetId = item.dataset.assetId;

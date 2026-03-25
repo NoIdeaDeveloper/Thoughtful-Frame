@@ -32,8 +32,8 @@ function setupAutoSlidingGallery(photosContainer, autoSlide = true) {
         const controls = document.createElement("div");
         controls.className = "gallery-controls";
         controls.innerHTML = `
-            <button class="gallery-control pause" title="Pause">&#9646;&#9646;</button>
-            <button class="gallery-control play hidden" title="Play">&#9654;</button>
+            <button class="gallery-control pause" title="Pause" aria-label="Pause">&#9646;&#9646;</button>
+            <button class="gallery-control play hidden" title="Play" aria-label="Play">&#9654;</button>
             <button class="gallery-control prev" title="Previous">&#8249;</button>
             <button class="gallery-control next" title="Next">&#8250;</button>
         `;
@@ -300,11 +300,15 @@ export async function renderEntry(container, entryId) {
             }
         });
 
-        // Retry button
+        // Retry button — reset image src to force re-fetch without a full page reload
         const retryBtn = document.getElementById("retry-images");
         if (retryBtn) {
             retryBtn.addEventListener("click", () => {
-                window.location.reload();
+                container.querySelectorAll("img[data-asset-id]").forEach(img => {
+                    const src = img.src;
+                    img.src = "";
+                    img.src = src;
+                });
             });
         }
 
@@ -437,10 +441,12 @@ function showLightbox(srcs, startIndex = 0) {
 function showDeleteConfirm(entryId) {
     const overlay = document.getElementById("modal-overlay");
     const container = document.getElementById("modal-container");
+    const triggerEl = document.activeElement;
 
     container.innerHTML = `
         <h2 class="modal-title">Delete Entry</h2>
         <p style="margin-bottom: 20px; color: var(--text-muted);">Are you sure you want to delete this journal entry? This cannot be undone.</p>
+        <div id="delete-error" class="modal-inline-error hidden"></div>
         <div class="modal-actions">
             <button class="btn btn-secondary" id="delete-cancel">Cancel</button>
             <button class="btn btn-danger" id="delete-confirm">Delete</button>
@@ -449,7 +455,10 @@ function showDeleteConfirm(entryId) {
 
     overlay.classList.remove("hidden");
 
-    document.getElementById("delete-cancel").addEventListener("click", closeModal);
+    document.getElementById("delete-cancel").addEventListener("click", () => {
+        closeModal();
+        triggerEl?.focus();
+    });
 
     document.getElementById("delete-confirm").addEventListener("click", async () => {
         const btn = document.getElementById("delete-confirm");
@@ -463,7 +472,9 @@ function showDeleteConfirm(entryId) {
         } catch (err) {
             btn.disabled = false;
             btn.textContent = "Delete";
-            alert("Failed to delete: " + err.message);
+            const errEl = document.getElementById("delete-error");
+            errEl.textContent = "Failed to delete: " + err.message;
+            errEl.classList.remove("hidden");
         }
     });
 }

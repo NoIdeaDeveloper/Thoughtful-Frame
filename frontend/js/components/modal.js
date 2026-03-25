@@ -10,6 +10,7 @@ const container = document.getElementById("modal-container");
 // Module-level handles so closeModal can clean them up
 let _overlayClickHandler = null;
 let _escHandler = null;
+let _previousFocus = null;
 
 const SUMMARY_MAX = 200;
 
@@ -30,15 +31,15 @@ function toDateInputValue(isoString) {
     return isoString.slice(0, 10);
 }
 
-/** Convert YYYY-MM-DD from date input to ISO string at midnight UTC */
+/** Convert YYYY-MM-DD from date input to ISO string at local midnight */
 function dateInputToISO(dateStr) {
     if (!dateStr) return new Date().toISOString();
-    // Parse as UTC midnight to avoid timezone-dependent date shifts
-    const d = new Date(dateStr + "T00:00:00Z");
-    return d.toISOString();
+    const [year, month, day] = dateStr.split("-").map(Number);
+    return new Date(year, month - 1, day).toISOString();
 }
 
 export function showEntryModal(assetIds, existingEntry = null, photoCreatedAt = null) {
+    _previousFocus = document.activeElement;
     const isEdit = existingEntry !== null;
     const todayISO = toDateInputValue(existingEntry?.created_at || photoCreatedAt || null);
 
@@ -255,6 +256,7 @@ export function showEntryPickerModal(assetId, entries) {
 }
 
 export function showReorderImagesModal(entryId, assetIds) {
+    _previousFocus = document.activeElement;
     // Work on a mutable copy
     let ordered = [...assetIds];
 
@@ -278,6 +280,7 @@ export function showReorderImagesModal(entryId, assetIds) {
         <p style="margin-bottom: 16px; color: var(--text-muted);">Drag images into the order you want them to appear.</p>
         <div class="reorder-list" id="reorder-list">${buildList()}</div>
         <div class="modal-actions">
+            <div id="reorder-error" class="modal-inline-error hidden"></div>
             <button class="btn btn-secondary" id="reorder-cancel">Cancel</button>
             <button class="btn btn-primary" id="reorder-save">Save Order</button>
         </div>
@@ -333,7 +336,9 @@ export function showReorderImagesModal(entryId, assetIds) {
         } catch (err) {
             saveBtn.disabled = false;
             saveBtn.textContent = "Save Order";
-            alert("Failed to save order: " + err.message);
+            const errEl = document.getElementById("reorder-error");
+            errEl.textContent = "Failed to save order: " + err.message;
+            errEl.classList.remove("hidden");
         }
     });
 }
@@ -351,4 +356,7 @@ export function closeModal() {
         document.removeEventListener("keydown", _escHandler);
         _escHandler = null;
     }
+
+    _previousFocus?.focus();
+    _previousFocus = null;
 }

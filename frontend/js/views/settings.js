@@ -167,6 +167,7 @@ export async function renderSettings(container) {
         const statusEl = document.getElementById("import-status");
         statusEl.textContent = "Importing...";
         statusEl.style.color = "var(--text-muted)";
+        e.target.disabled = true;
 
         try {
             const text = await file.text();
@@ -177,9 +178,10 @@ export async function renderSettings(container) {
         } catch (err) {
             statusEl.textContent = "Import failed: " + err.message;
             statusEl.style.color = "#c0392b";
+        } finally {
+            e.target.disabled = false;
+            e.target.value = "";
         }
-
-        e.target.value = "";
     });
 }
 
