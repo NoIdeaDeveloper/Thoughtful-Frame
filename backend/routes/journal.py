@@ -184,6 +184,41 @@ async def get_entries_for_asset(asset_id: str):
         raise HTTPException(status_code=500, detail="Failed to get entries for asset")
 
 
+@router.get("/on-this-day", response_model=list[EntryResponse])
+async def on_this_day():
+    db = get_db()
+    try:
+        cursor = await db.execute(
+            """SELECT * FROM journal_entries
+               WHERE strftime('%m-%d', created_at) = strftime('%m-%d', 'now')
+               AND strftime('%Y', created_at) < strftime('%Y', 'now')
+               ORDER BY created_at DESC LIMIT 20"""
+        )
+        entries = await cursor.fetchall()
+        return await _build_entries_response(db, entries)
+    except Exception as e:
+        logger.error(f"Failed to get on-this-day entries: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get on-this-day entries")
+
+
+@router.get("/entries/random", response_model=EntryResponse)
+async def get_random_entry():
+    db = get_db()
+    try:
+        cursor = await db.execute(
+            "SELECT * FROM journal_entries ORDER BY RANDOM() LIMIT 1"
+        )
+        entry = await cursor.fetchone()
+        if not entry:
+            raise HTTPException(status_code=404, detail="No entries found")
+        return await _build_entry_response(db, entry)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get random entry: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get random entry")
+
+
 @router.get("/entries/{entry_id}", response_model=EntryResponse)
 async def get_entry(entry_id: int):
     db = get_db()

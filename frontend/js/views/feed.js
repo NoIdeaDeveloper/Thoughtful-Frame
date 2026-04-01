@@ -1,4 +1,4 @@
-import { fetchEntries, searchEntries } from "../api.js";
+import { fetchEntries, searchEntries, fetchOnThisDay, fetchRandomEntry, fetchJournalStats } from "../api.js";
 import { renderEntryCard } from "../components/entryCard.js";
 import { escapeHtml } from "../utils.js";
 
@@ -12,7 +12,14 @@ export async function renderFeed(container) {
 
     container.innerHTML = `
         <div class="feed-container">
-            <h2 class="feed-header">My Journal</h2>
+            <div class="feed-header-row">
+                <h2 class="feed-header">My Journal</h2>
+                <div class="feed-header-actions">
+                    <span id="streak-pill" class="streak-pill" style="display:none"></span>
+                    <button id="surprise-btn" class="btn btn-secondary btn-small">Surprise me</button>
+                </div>
+            </div>
+            <div id="on-this-day-banner"></div>
             <div class="feed-filters">
                 <input
                     type="search"
@@ -49,6 +56,9 @@ export async function renderFeed(container) {
     const dateFromInput = document.getElementById("feed-date-from");
     const dateToInput = document.getElementById("feed-date-to");
     const clearBtn = document.getElementById("feed-clear-filters");
+    const streakPill = document.getElementById("streak-pill");
+    const onThisDayBanner = document.getElementById("on-this-day-banner");
+    const surpriseBtn = document.getElementById("surprise-btn");
 
     function updateClearButton() {
         const hasFilters = currentQuery.trim() || currentDateFrom || currentDateTo || currentTag;
@@ -66,14 +76,51 @@ export async function renderFeed(container) {
         });
     }
 
+    const hasActiveFilters = () => currentQuery.trim() || currentDateFrom || currentDateTo || currentTag;
+
     async function renderFirstPage() {
         currentPage = 1;
         entriesEl.innerHTML = skeletonCards(3);
         loadMoreEl.classList.add("hidden");
         updateClearButton();
 
+        // On first unfiltered load, fetch On This Day + stats in parallel
+        const isUnfiltered = !hasActiveFilters();
+        const sidePromises = isUnfiltered
+            ? [fetchOnThisDay().catch(() => []), fetchJournalStats().catch(() => null)]
+            : [Promise.resolve(null), Promise.resolve(null)];
+
         try {
-            const data = await loadPage(1);
+            const [data, [onThisDayEntries, stats]] = await Promise.all([
+                loadPage(1),
+                Promise.all(sidePromises),
+            ]);
+
+            // Streak pill
+            if (stats && stats.current_streak > 0) {
+                const label = stats.current_streak === 1 ? "day streak" : "day streak";
+                streakPill.textContent = `\uD83D\uDD25 ${stats.current_streak} ${label}`;
+                streakPill.style.display = "inline-flex";
+                if (stats.current_streak >= 7) streakPill.classList.add("streak-pill--hot");
+            }
+
+            // On This Day banner
+            if (isUnfiltered && onThisDayEntries && onThisDayEntries.length > 0) {
+                const bannerEl = document.createElement("div");
+                bannerEl.className = "on-this-day-banner";
+                bannerEl.innerHTML = `<h3 class="on-this-day-title">On this day</h3>`;
+                const list = document.createElement("div");
+                list.className = "on-this-day-list";
+                for (const entry of onThisDayEntries) {
+                    list.appendChild(renderEntryCard(entry));
+                }
+                bannerEl.appendChild(list);
+                onThisDayBanner.innerHTML = "";
+                onThisDayBanner.appendChild(bannerEl);
+            } else {
+                onThisDayBanner.innerHTML = "";
+            }
+
             entriesEl.innerHTML = "";
 
             if (!data || !data.entries || !Array.isArray(data.entries)) {
@@ -82,20 +129,23 @@ export async function renderFeed(container) {
             }
 
             if (data.entries.length === 0) {
-                const hasFilters = currentQuery.trim() || currentDateFrom || currentDateTo;
-                if (hasFilters) {
+                if (hasActiveFilters()) {
                     entriesEl.innerHTML = `
                         <div class="empty-state">
-                            <h2>No entries match your filters</h2>
+                            <div class="empty-state-icon">🔍</div>
+                            <h2>Nothing found</h2>
                             <p>Try different keywords or date range.</p>
+                            <button class="btn-link" id="empty-clear-filters">Clear filters</button>
                         </div>
                     `;
+                    document.getElementById("empty-clear-filters")?.addEventListener("click", () => clearBtn.click());
                 } else {
                     entriesEl.innerHTML = `
                         <div class="empty-state">
-                            <h2>Begin your journal</h2>
+                            <div class="empty-state-icon">📷</div>
+                            <h2>Your journal is waiting</h2>
                             <p>Browse your photos and write about your memories.</p>
-                            <a href="#/browse" class="btn btn-primary">Browse Photos</a>
+                            <a href="#/browse" class="btn btn-primary">Start with a photo</a>
                         </div>
                     `;
                     document.title = "Journal Empty - Thoughtful Frame";
@@ -131,6 +181,21 @@ export async function renderFeed(container) {
     }
 
     await renderFirstPage();
+
+    // Surprise me button
+    surpriseBtn.addEventListener("click", async () => {
+        surpriseBtn.innerHTML = `Surprise me <span class="spinner"></span>`;
+        surpriseBtn.disabled = true;
+        try {
+            const entry = await fetchRandomEntry();
+            window.location.hash = `#/entry/${entry.id}`;
+        } catch (err) {
+            console.error("Failed to fetch random entry:", err);
+        } finally {
+            surpriseBtn.textContent = "Surprise me";
+            surpriseBtn.disabled = false;
+        }
+    });
 
     // Load more
     const loadMoreBtn = loadMoreEl.querySelector("button");

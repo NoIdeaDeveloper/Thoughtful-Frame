@@ -75,15 +75,64 @@ async def get_journal_stats():
             GROUP BY substr(created_at, 1, 7)
             ORDER BY month DESC
         """)
-        
         rows = await cursor.fetchall()
-        
-        # Format response
+
+        # Per-day counts for heatmap
+        cursor = await db.execute("""
+            SELECT
+                substr(created_at, 1, 10) as day,
+                COUNT(*) as count
+            FROM journal_entries
+            GROUP BY substr(created_at, 1, 10)
+            ORDER BY day ASC
+        """)
+        day_rows = await cursor.fetchall()
+
+        # Top 30 tags
+        cursor = await db.execute("""
+            SELECT t.name as tag, COUNT(*) as count
+            FROM entry_tags et
+            JOIN tags t ON et.tag_id = t.id
+            GROUP BY t.id
+            ORDER BY count DESC
+            LIMIT 30
+        """)
+        tag_rows = await cursor.fetchall()
+
+        # Streak calculation — walk backwards from today over per-day set
+        day_set = {r["day"] for r in day_rows}
+        from datetime import date, timedelta
+        today = date.today()
+        current_streak = 0
+        check = today
+        while check.isoformat() in day_set:
+            current_streak += 1
+            check -= timedelta(days=1)
+
+        longest_streak = 0
+        streak = 0
+        sorted_days = sorted(day_set)
+        for i, d in enumerate(sorted_days):
+            if i == 0:
+                streak = 1
+            else:
+                prev = date.fromisoformat(sorted_days[i - 1])
+                cur = date.fromisoformat(d)
+                if (cur - prev).days == 1:
+                    streak += 1
+                else:
+                    streak = 1
+            longest_streak = max(longest_streak, streak)
+
         stats = {
             "by_month": [{"month": row["month"], "count": row["count"]} for row in rows],
-            "total_entries": sum(row["count"] for row in rows)
+            "total_entries": sum(row["count"] for row in rows),
+            "by_day": [{"day": r["day"], "count": r["count"]} for r in day_rows],
+            "top_tags": [{"tag": r["tag"], "count": r["count"]} for r in tag_rows],
+            "current_streak": current_streak,
+            "longest_streak": longest_streak,
         }
-        
+
         return stats
     except Exception as e:
         logger.error(f"Failed to get journal stats: {e}", exc_info=True)

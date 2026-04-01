@@ -149,6 +149,18 @@ export async function getSettings() {
     return res.json();
 }
 
+export async function fetchOnThisDay() {
+    const res = await apiFetch(`${API_BASE}/journal/on-this-day`);
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+}
+
+export async function fetchRandomEntry() {
+    const res = await apiFetch(`${API_BASE}/journal/entries/random`);
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+}
+
 export async function fetchJournalStats() {
     const res = await apiFetch(`${API_BASE}/stats`);
     if (!res.ok) throw new Error(await res.text());
